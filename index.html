@@ -31,7 +31,8 @@
   <div class="mut" id="q"></div>
 </div>
 <button id="csv" disabled>匯出 CSV（對照 Apple Watch 用）</button>
-<div class="card"><div class="mut">環境資訊（回報問題時請截圖）</div><pre id="env"></pre></div>
+<div class="card"><div class="mut">環境資訊（回報問題時請截圖）</div><pre id="env"></pre><pre id="env2"></pre></div>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
 // rPPG 訊號處理：POS 演算法（Wang et al., 2017, IEEE TBME）依論文公式自行實作，無第三方程式碼。
 const FS = 30; // 重新取樣頻率（Hz）
@@ -121,6 +122,19 @@ const REGIONS = [
 ];
 $('env').textContent = 'UA: ' + navigator.userAgent + '\nLINE 內建: ' + /Line\//i.test(navigator.userAgent) +
   '\ngetUserMedia: ' + !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+
+// LIFF 初始化：只確認 LINE 登入與 ID token 可用，不強制登入、不送出任何資料
+const LIFF_ID = '2012160129-CwL40nTW';
+(async () => {
+  const out = s => { $('env2').textContent = 'LIFF: ' + s; };
+  try {
+    if (!window.liff) throw new Error('LIFF SDK 未載入');
+    await liff.init({ liffId: LIFF_ID });
+    const lg = liff.isLoggedIn();
+    out('已初始化；在 LINE 內=' + liff.isInClient() + '；已登入=' + lg + '；ID token=' + (lg && liff.getIDToken() ? '取得' : '無'));
+  } catch (e) { out('失敗 ' + e.message); }
+})();
 
 let landmarker, rows = [], lastResult = null;
 const v = $('v'), ov = $('ov'), octx = ov.getContext('2d');
