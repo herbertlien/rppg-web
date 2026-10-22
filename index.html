@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>rPPG 雛形</title>
+<style>
+  :root{--bg:#faf8f5;--fg:#222;--mut:#777;--ac:#2f7d5b;--card:#fff}
+  @media (prefers-color-scheme:dark){:root{--bg:#161616;--fg:#eee;--mut:#999;--ac:#5cc79a;--card:#222}}
+  body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,"Noto Sans TC",sans-serif;max-width:480px;margin:auto}
+  h1{font-size:20px;margin:8px 0}
+  .box{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:3/4}
+  video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #ov{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+  button{width:100%;padding:14px;margin:10px 0 0;font-size:17px;border:0;border-radius:10px;background:var(--ac);color:#fff}
+  button:disabled{opacity:.4}
+  .card{background:var(--card);border-radius:10px;padding:12px;margin-top:10px}
+  .big{font-size:40px;font-weight:700}
+  .mut{color:var(--mut);font-size:14px}
+  pre{white-space:pre-wrap;font-size:12px;margin:0}
+</style>
+</head>
+<body>
+<h1>rPPG 量測雛形</h1>
+<p class="mut">請在明亮、均勻的光線下，臉對著前鏡頭，手機放穩，30 秒內不要說話或大幅移動。</p>
+<div class="box"><video id="v" playsinline muted></video><canvas id="ov"></canvas></div>
+<button id="go">開始（會要求使用前鏡頭）</button>
+<div class="card">
+  <div id="st" class="mut">尚未開始</div>
+  <div class="big" id="hr">--</div>
+  <div class="mut" id="q"></div>
+</div>
+<button id="csv" disabled>匯出 CSV（對照 Apple Watch 用）</button>
+<div class="card"><div class="mut">環境資訊（回報問題時請截圖）</div><pre id="env"></pre></div>
+<script type="module">
+// rPPG 訊號處理：POS 演算法（Wang et al., 2017, IEEE TBME）依論文公式自行實作，無第三方程式碼。
+const FS = 30; // 重新取樣頻率（Hz）
+
+// 把不等間隔的取樣（t 單位：秒）線性內插成固定 FS
+function resample(t, ch, fs = FS) {
+  const n = Math.floor((t[t.length - 1] - t[0]) * fs);
+  const out = [new Float64Array(n), new Float64Array(n), new Float64Array(n)];
+  let j = 0;
+  for (let i = 0; i < n; i++) {
+    const x = t[0] + i / fs;
+    while (j < t.length - 2 && t[j + 1] < x) j++;
+    const a = (x - t[j]) / (t[j + 1] - t[j] || 1);
+    for (let c = 0; c < 3; c++) out[c][i] = ch[c][j] * (1 - a) + ch[c][j + 1] * a;
+  }
+  return out;
+}
+
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+const std = a => { const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length); };
+
+// POS：滑動視窗 1.6 秒，重疊相加
+function pos(rgb, fs = FS) {
+  const n = rgb[0].length, L = Math.round(1.6 * fs);
+  const H = new Float64Array(n);
+  for (let s = 0; s + L <= n; s++) {
+    const seg = rgb.map(c => Array.from(c.subarray(s, s + L)));
+    const cn = seg.map(c => { const m = mean(c) || 1; return c.map(v => v / m); });
+    const s1 = cn[1].map((g, i) => g - cn[2][i]);
+    const s2 = cn[1].map((g, i) => -2 * cn[0][i] + g + cn[2][i]);
+    const a = std(s1) / (std(s2) || 1);
+    const h = s1.map((v, i) => v + a * s2[i]);
+    const m = mean(h);
+    for (let i = 0; i < L; i++) H[s + i] += h[i] - m;
+  }
+  return H;
+}
+
+// 去除緩慢趨勢（移動平均相減，約 1 秒）
+function detrend(x, fs = FS) {
+  const w = Math.round(fs), out = new Float64Array(x.length);
+  for (let i = 0; i < x.length; i++) {
+    let s = 0, c = 0;
+    for (let k = Math.max(0, i - w); k <= Math.min(x.length - 1, i + w); k++) { s += x[k]; c++; }
+    out[i] = x[i] - s / c;
+  }
+  return out;
+}
+
+// 漢寧視窗 + 補零 DFT，只掃 0.7–3.5 Hz（42–210 bpm）；回傳心率與訊號品質
+function estimateHR(x, fs = FS) {
+  const n = x.length, N = 4096;
+  const w = x.map((v, i) => v * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1))));
+  const f0 = 0.7, f1 = 3.5, df = fs / N;
+  const k0 = Math.ceil(f0 / df), k1 = Math.floor(f1 / df);
+  const P = new Float64Array(k1 + 1);
+  for (let k = k0; k <= k1; k++) {
+    let re = 0, im = 0; const ph = 2 * Math.PI * k / N;
+    for (let i = 0; i < n; i++) { re += w[i] * Math.cos(ph * i); im -= w[i] * Math.sin(ph * i); }
+    P[k] = re * re + im * im;
+  }
+  let kp = k0; for (let k = k0; k <= k1; k++) if (P[k] > P[kp]) kp = k;
+  let total = 0, sig = 0;
+  for (let k = k0; k <= k1; k++) {
+    total += P[k];
+    const f = k * df, fp = kp * df;
+    if (Math.abs(f - fp) < 0.12 || Math.abs(f - 2 * fp) < 0.12) sig += P[k];
+  }
+  const snr = sig / ((total - sig) || 1e-12);
+  return { bpm: kp * df * 60, snr, quality: sig / (total || 1) };
+}
+
+function analyze(t, ch, fs = FS) {
+  const r = resample(t, ch, fs);
+  return estimateHR(detrend(pos(r, fs), fs), fs);
+}
+
+import { FilesetResolver, FaceLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+
+const $ = id => document.getElementById(id);
+const DUR = 30;
+// 額頭與雙頰的臉部特徵點編號（MediaPipe 468 點網格）
+const REGIONS = [
+  [10,67,69,104,108,151,337,299,297,338],
+  [50,101,118,117,123,187],
+  [280,330,347,346,352,411],
+];
+$('env').textContent = 'UA: ' + navigator.userAgent + '\nLINE 內建: ' + /Line\//i.test(navigator.userAgent) +
+  '\ngetUserMedia: ' + !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+let landmarker, rows = [], lastResult = null;
+const v = $('v'), ov = $('ov'), octx = ov.getContext('2d');
+const grab = document.createElement('canvas'); const gctx = grab.getContext('2d', { willReadFrequently: true });
+
+async function init() {
+  $('st').textContent = '載入臉部偵測模型…';
+  const fs = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+  landmarker = await FaceLandmarker.createFromOptions(fs, {
+    baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task' },
+    runningMode: 'VIDEO', numFaces: 1,
+  });
+}
+
+function roiMean(lm, idx) {
+  const W = grab.width, H = grab.height;
+  let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+  for (const i of idx) { const p = lm[i]; x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+  const x = Math.max(0, Math.floor(x0 * W)), y = Math.max(0, Math.floor(y0 * H));
+  const w = Math.min(W - x, Math.ceil((x1 - x0) * W)), h = Math.min(H - y, Math.ceil((y1 - y0) * H));
+  if (w < 4 || h < 4) return null;
+  const d = gctx.getImageData(x, y, w, h).data; let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+  return { m: [r / n, g / n, b / n], box: [x, y, w, h] };
+}
+
+function show(r, final) {
+  $('hr').textContent = Math.round(r.bpm) + ' bpm';
+  const lvl = r.quality > .55 ? '良好' : r.quality > .35 ? '普通，建議重測' : '不佳，請重測';
+  $('q').textContent = '訊號品質：' + lvl + '（' + r.quality.toFixed(2) + '）' + (final ? '' : ' ・即時估計');
+}
+
+function series(from = 0) {
+  const s = rows.slice(from);
+  return { t: s.map(r => r.t), ch: [0, 1, 2].map(c => s.map(r => r.rgb[c])) };
+}
+
+async function run() {
+  $('go').disabled = true; $('csv').disabled = true; rows = []; lastResult = null; $('hr').textContent = '--';
+  try {
+    if (!landmarker) await init();
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
+    v.srcObject = stream; await v.play();
+    grab.width = v.videoWidth; grab.height = v.videoHeight; ov.width = v.videoWidth; ov.height = v.videoHeight;
+    const trk = stream.getVideoTracks()[0]; const set = trk.getSettings();
+    $('env').textContent += '\n鏡頭: ' + set.width + 'x' + set.height + ' @' + (set.frameRate || '?') + 'fps';
+    let t0 = null, lastShown = 0, noFace = 0;
+    await new Promise(done => {
+      const tick = (now) => {
+        gctx.drawImage(v, 0, 0, grab.width, grab.height);
+        const res = landmarker.detectForVideo(v, now);
+        octx.clearRect(0, 0, ov.width, ov.height);
+        if (res.faceLandmarks.length) {
+          const lm = res.faceLandmarks[0]; const parts = REGIONS.map(r => roiMean(lm, r));
+          if (parts.every(Boolean)) {
+            if (t0 === null) t0 = now;
+            const rgb = [0, 1, 2].map(c => parts.reduce((s, p) => s + p.m[c], 0) / parts.length);
+            rows.push({ t: (now - t0) / 1000, rgb });
+            octx.strokeStyle = '#5cc79a'; octx.lineWidth = 3;
+            parts.forEach(p => octx.strokeRect(...p.box));
+          }
+          noFace = 0;
+        } else noFace++;
+        const el = t0 === null ? 0 : (now - t0) / 1000;
+        $('st').textContent = noFace > 15 ? '找不到臉，請對準鏡頭' : '量測中… ' + Math.min(DUR, Math.round(el)) + ' / ' + DUR + ' 秒';
+        if (el > 12 && el - lastShown > 2 && rows.length > 200) { lastShown = el; const s = series(Math.max(0, rows.findIndex(r => r.t > el - 15))); show(analyze(s.t, s.ch), false); }
+        if (el >= DUR) return done();
+        v.requestVideoFrameCallback ? v.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);
+      };
+      v.requestVideoFrameCallback ? v.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);
+    });
+    stream.getTracks().forEach(t => t.stop()); octx.clearRect(0, 0, ov.width, ov.height);
+    if (rows.length < 300) { $('st').textContent = '有效畫面太少（' + rows.length + ' 幀），請重測'; }
+    else {
+      const s = series(); lastResult = analyze(s.t, s.ch); show(lastResult, true);
+      const fps = rows.length / rows[rows.length - 1].t;
+      $('st').textContent = '完成（' + rows.length + ' 幀，平均 ' + fps.toFixed(1) + ' fps）';
+      $('csv').disabled = false;
+    }
+  } catch (e) { $('st').textContent = '失敗：' + e.name + ' ' + e.message; }
+  $('go').disabled = false; $('go').textContent = '重新量測';
+}
+
+$('go').onclick = run;
+$('csv').onclick = () => {
+  const head = '# bpm=' + (lastResult ? lastResult.bpm.toFixed(1) : '') + ',quality=' + (lastResult ? lastResult.quality.toFixed(2) : '') + ',ua=' + JSON.stringify(navigator.userAgent) + '\nt_sec,R,G,B\n';
+  const body = rows.map(r => r.t.toFixed(4) + ',' + r.rgb.map(x => x.toFixed(3)).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([head + body], { type: 'text/csv' }));
+  a.download = 'rppg_' + new Date().toISOString().replace(/[:.]/g, '-') + '.csv'; a.click();
+};
+</script>
+</body>
+</html>
