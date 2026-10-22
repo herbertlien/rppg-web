@@ -1,0 +1,118 @@
+{
+  "_note": "成分字典與每日上限。每個品項用到的成分都要在這裡登記名稱與單位；有 max 的才會檢查上限（來源：南都 2026-10-18 回覆的 UL 表），沒有 max 的只加總、顯示。",
+  "source": "南都 UL 表 2026-10-18",
+  "warnAtPct": 80,
+  "nutrients": {
+    "vitamin_c": {
+      "name": "維生素 C",
+      "unit": "mg",
+      "max": 2000
+    },
+    "vitamin_d": {
+      "name": "維生素 D",
+      "unit": "µg",
+      "max": 50
+    },
+    "calcium": {
+      "name": "鈣",
+      "unit": "mg",
+      "max": 2500
+    },
+    "magnesium": {
+      "name": "鎂（補充劑）",
+      "unit": "mg",
+      "max": 350
+    },
+    "zinc": {
+      "name": "鋅",
+      "unit": "mg",
+      "max": 35
+    },
+    "iron": {
+      "name": "鐵",
+      "unit": "mg",
+      "max": 40
+    },
+    "epa_dha": {
+      "name": "魚油 EPA + DHA",
+      "unit": "mg",
+      "max": 2000
+    },
+    "lutein": {
+      "name": "葉黃素",
+      "unit": "mg",
+      "max": 30
+    },
+    "vitamin_b6": {
+      "name": "維生素 B6",
+      "unit": "mg",
+      "max": 80
+    },
+    "niacin": {
+      "name": "菸鹼酸",
+      "unit": "mg",
+      "max": 35
+    },
+    "folate": {
+      "name": "葉酸",
+      "unit": "µg",
+      "max": 1000
+    },
+    "vitamin_b1": {
+      "name": "維生素 B1",
+      "unit": "mg"
+    },
+    "vitamin_b2": {
+      "name": "維生素 B2",
+      "unit": "mg"
+    },
+    "pantothenic_acid": {
+      "name": "泛酸鈣",
+      "unit": "mg"
+    },
+    "niacinamide": {
+      "name": "菸鹼醯胺",
+      "unit": "mg"
+    },
+    "vitamin_b12": {
+      "name": "維生素 B12",
+      "unit": "µg"
+    },
+    "vitamin_a": {
+      "name": "維生素 A",
+      "unit": "IU"
+    },
+    "vitamin_e": {
+      "name": "維生素 E",
+      "unit": "IU"
+    },
+    "gamma_oryzanol": {
+      "name": "米胚芽萃取（γ-oryzanol）",
+      "unit": "mg"
+    },
+    "rhodiola_extract": {
+      "name": "紅景天萃取",
+      "unit": "mg"
+    },
+    "sesamin": {
+      "name": "芝麻素",
+      "unit": "mg"
+    },
+    "probiotic": {
+      "name": "益生菌",
+      "unit": "億 CFU"
+    },
+    "grape_seed_extract": {
+      "name": "葡萄籽萃取",
+      "unit": "mg"
+    },
+    "collagen": {
+      "name": "膠原蛋白",
+      "unit": "mg"
+    },
+    "elderberry_extract": {
+      "name": "接骨木莓萃取",
+      "unit": "mg"
+    }
+  }
+}
