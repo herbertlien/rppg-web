@@ -110,7 +110,7 @@ h1 b{color:#2f7d5b}
 await page.screenshot({ path: new URL('intro.png', out).pathname });
 
 // 主選單：三步驟卡片，編號與箭頭表達先後順序
-const HW = 2500, HH = 1120, STRIP = 340, hb = [['scan', '今日電量', '30 秒掃臉看狀態'], ['quiz', '每日問卷', '整理你的組合'], ['pack', '我的組合', '看目前狀態']];
+const HW = 2500, HH = 1120, STRIP = 340, hb = [['scan', '今日電量', '30 秒掃臉看狀態'], ['quiz', '每日問卷', '整理你的組合'], ['me', '我的 Deerly', '報告・組合・紀錄']];
 const hg = 110, hw = Math.floor((HW - 60 * 2 - hg * 2) / 3);
 const logoUri = 'data:image/png;base64,' + readFileSync(new URL('../menus/brand-logo.png', import.meta.url)).toString('base64');
 await page.setViewportSize({ width: HW, height: HH });
@@ -125,7 +125,7 @@ body{margin:0;width:${HW}px;height:${HH}px;background:${C.bg};font-family:${FONT
 .b .no{width:190px;height:190px;border-radius:95px;background:${C.ac};color:#fff;font-size:130px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:26px}
 .b b{font-size:140px;font-weight:800;line-height:1.1}.b i{font-style:normal;font-size:78px;color:${C.mut};margin-top:14px;font-weight:600}
 .ar{position:absolute;top:${STRIP + (HH - STRIP - 50) / 2 - 70}px;width:${hg}px;text-align:center;font-size:120px;color:${C.ac};line-height:1}
-</style><div class="brandrow"><img src="${logoUri}"><div class="t"><small>DEERLY</small><b>把每天的保養，整理成<em>一包</em></b></div></div>` + hb.map((h, i) => `<div class="b" style="left:${60 + i * (hw + hg)}px"><div class="no">${i + 1}</div><b>${h[1]}</b><i>${h[2]}</i></div>`).join('') +
+</style><div class="brandrow"><img src="${logoUri}"><div class="t"><small>DEERLY</small><b>把每天的保養，整理成<em>一包</em></b></div></div>` + hb.map((h, i) => `<div class="b" style="left:${60 + i * (hw + hg)}px"><div class="no">${i + 1}</div><b${h[1].length > 5 ? ' style="font-size:112px"' : ''}>${h[1]}</b><i>${h[2]}</i></div>`).join('') +
   [0, 1].map(i => `<div class="ar" style="left:${60 + (i + 1) * hw + i * hg}px">›</div>`).join(''));
 await page.screenshot({ path: new URL('home.png', out).pathname });
 areas.home = hb.map((h, i) => ({ key: h[0], x: i === 0 ? 0 : 60 + i * (hw + hg) - hg / 2, y: STRIP, w: i === 0 ? 60 + hw + hg / 2 : i === 2 ? HW - (60 + i * (hw + hg) - hg / 2) : hw + hg, h: HH - STRIP }));

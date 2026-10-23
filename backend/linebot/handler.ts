@@ -421,12 +421,14 @@ async function setupMenus() {
   return done;
 }
 
-// 主選單（預設選單）：今日電量、每日問卷、我的組合。沒有在作答的人都看這個
+// 主選單（預設選單）：今日電量、每日問卷、我的 Deerly（開 LIFF 頁）。沒有在作答的人都看這個
 async function setupHome(a: { key: string; x: number; y: number; w: number; h: number }[]) {
   if (!a) throw new Error("缺少主選單的圖");
   const act = (k: string) => k === "scan"
     ? { type: "uri", uri: LIFF_URL }
-    : { type: "postback", data: `home|${k}`, displayText: k === "quiz" ? "開始問卷" : "我的組合" };
+    : k === "me"
+    ? { type: "uri", uri: `${LIFF_URL}/me/` }
+    : { type: "postback", data: `home|${k}`, displayText: "開始問卷" };
   const created = await line("/v2/bot/richmenu", "POST", {
     size: { width: 2500, height: 1120 }, selected: false, name: "home", chatBarText: "主選單",
     areas: a.map((x) => ({ bounds: { x: x.x, y: x.y, width: x.w, height: x.h }, action: act(x.key) })),

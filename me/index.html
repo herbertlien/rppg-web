@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>我的 Deerly</title>
+<link rel="stylesheet" href="../engine/style.css?v=202610231723">
+<style>
+  body{font-size:18px}
+  h1{font-size:24px;margin:8px 0 12px}
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tabs button{flex:1;padding:12px 0;font-size:18px;border:1.5px solid var(--ac);border-radius:12px;background:none;color:var(--ac)}
+  .tabs button.on{background:var(--ac);color:#fff}
+  .card h2{font-size:20px;margin:0 0 8px}
+  .card h3{font-size:18px;margin:14px 0 2px;color:var(--ac)}
+  .card p{margin:4px 0}
+  .date{color:var(--mut);font-size:15px;margin-bottom:6px}
+  details.card>summary{font-size:18px;padding:2px 0;cursor:pointer}
+  .it{padding:10px 0;border-bottom:1px solid var(--line)}
+  .it:last-child{border-bottom:0}
+  .it b{font-size:19px}
+  .rec{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:17px}
+  .rec:last-child{border-bottom:0}
+  .rec .d{width:84px;color:var(--mut);font-size:15px}
+  .rec .bar2{flex:1;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+  .rec .bar2 i{display:block;height:100%;background:var(--ac)}
+  .rec .n{width:64px;text-align:right}
+  .big{font-size:22px;font-weight:600}
+  a.btn{display:block;text-align:center;text-decoration:none;padding:14px;margin-top:12px;font-size:18px;border-radius:12px;background:var(--ac);color:#fff}
+</style>
+</head>
+<body>
+<h1>我的 Deerly</h1>
+<p id="status" class="mut">載入中…</p>
+<div id="main" hidden>
+  <div class="tabs"><button data-t="report">報告</button><button data-t="pack">組合</button><button data-t="rec">紀錄</button></div>
+  <div id="view"></div>
+</div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script type="module">
+// 版本檢查：LINE 會快取舊網頁，發現有新版就帶版本號重新載入一次
+const V = '202610231723';
+{
+  const u = new URL(location.href);
+  try {
+    const { v } = await fetch(`../engine/version.json`, { cache: 'no-store' }).then(r => r.json());
+    if (v !== V && u.searchParams.get('_v') !== v) { u.searchParams.set('_v', v); location.replace(u); await new Promise(() => {}); }
+  } catch { /* 讀不到版本檔就用目前的版本 */ }
+}
+const { login, call } = await import(`../engine/api.js?v=${V}`);
+
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const QMIN = 0.35;
+const fmtDate = s => { const d = new Date(s); return `${d.getMonth() + 1}/${d.getDate()}`; };
+const fmtTime = s => { const d = new Date(s); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+let me = null;
+
+function reportCard(p) {
+  const r = p.report, c = el('div');
+  if (!r) { c.append(el('p', 'mut', '這一份沒有保存當時的回答，無法重現報告。')); return c; }
+  if (r.focus.length) {
+    c.append(el('h3', '', '你的重點'));
+    r.focus.forEach((f, i) => { c.append(el('p', 'big', `${i + 1}　${f.label}`), el('p', 'mut', f.because.join('；') || '依你的回答')); });
+  }
+  c.append(el('h3', '', '我們幫你整理了什麼'));
+  if (r.taking.length) c.append(el('p', '', `你現在固定吃：${r.taking.join('、')}`));
+  c.append(el('p', '', `整理成一包，每天 ${r.tier} 項。`));
+  r.avoided.forEach(a => c.append(el('p', '', `✓ ${a}`)));
+  c.append(el('p', 'mut', r.safety));
+  c.append(el('h3', '', '先試一件小事'), el('p', '', r.tip || '先維持目前的作息。'));
+  return c;
+}
+
+function viewReport(v) {
+  if (!me.packs.length) return empty(v);
+  me.packs.forEach((p, i) => {
+    const box = i === 0 ? el('div', 'card') : el('details', 'card');
+    const title = `${fmtDate(p.createdAt)} 的專屬報告`;
+    if (i === 0) box.append(el('div', 'date', '最新'), el('h2', '', title)); else box.append(el('summary', '', title));
+    box.append(reportCard(p));
+    v.append(box);
+  });
+}
+
+function viewPack(v) {
+  const p = me.packs.find(x => x.status === 'approved');
+  const latest = me.packs[0];
+  if (!latest) return empty(v);
+  if (!p) {
+    const c = el('div', 'card');
+    c.append(el('h2', '', '組合整理中'), el('p', '', latest.status === 'returned' ? '這份組合需要再調整，我們會在聊天室聯絡你。' : '我們正在逐項確認你的組合，確認後會在聊天室通知你。'));
+    v.append(c); return;
+  }
+  const c = el('div', 'card');
+  c.append(el('div', 'date', `${fmtDate(p.createdAt)} 確認`), el('h2', '', `每天 ${p.items.length} 項`));
+  p.items.forEach(it => {
+    const d = el('div', 'it');
+    d.append(el('b', '', it.name + (it.dailyCapsules ? `　${it.dailyCapsules} 顆` : '')));
+    if (it.reason) d.append(el('p', 'mut', it.reason));
+    c.append(d);
+  });
+  v.append(c);
+  const ch = p.change;
+  if (ch && (ch.added.length || ch.removed.length)) {
+    const k = el('div', 'card');
+    k.append(el('h2', '', '和上次相比'));
+    if (ch.added.length) k.append(el('p', '', `加入：${ch.added.join('、')}`));
+    if (ch.removed.length) k.append(el('p', '', `拿掉：${ch.removed.join('、')}`));
+    v.append(k);
+  }
+  v.append(el('p', 'mut', '每個月我們會依你的回答調整一次，並寫下調整的原因。'));
+}
+
+function viewRec(v) {
+  const ok = me.scans.filter(s => s.quality >= QMIN);
+  const c = el('div', 'card');
+  const base = ok.filter(s => Date.now() - new Date(s.scanned_at).getTime() <= 28 * 864e5);
+  if (base.length >= 3) {
+    c.append(el('div', 'date', '你的平常心率（近 28 天）'), el('div', 'big', `約 ${Math.round(median(base.map(s => s.bpm)))} 次／分`));
+  } else {
+    c.append(el('h2', '', '累積中'), el('p', '', `再量幾次（${Math.min(base.length, 3)}／3），就能算出你的平常心率。`));
+  }
+  v.append(c);
+  const list = ok.slice(0, 14);
+  if (list.length) {
+    const lo = Math.min(...list.map(s => s.bpm)) - 5, hi = Math.max(...list.map(s => s.bpm)) + 5;
+    const k = el('div', 'card');
+    k.append(el('h2', '', '最近的量測'));
+    list.forEach(s => {
+      const r = el('div', 'rec');
+      const bar = el('div', 'bar2'), i = el('i'); i.style.width = Math.round(100 * (s.bpm - lo) / (hi - lo)) + '%'; bar.append(i);
+      r.append(el('span', 'd', fmtTime(s.scanned_at)), bar, el('span', 'n', String(Math.round(s.bpm))));
+      k.append(r);
+      if (s.watch_bpm) k.append(el('div', 'mut', `　手錶 ${s.watch_bpm}`));
+    });
+    k.append(el('p', 'mut', '數字是每次 30 秒的平均心率，只和你自己比較，不是醫療判斷。'));
+    v.append(k);
+  }
+  const a = el('a', 'btn', '量今日電量'); a.href = 'https://liff.line.me/2012160129-CwL40nTW';
+  v.append(a);
+}
+
+function empty(v) {
+  const c = el('div', 'card');
+  c.append(el('h2', '', '還沒有資料'), el('p', '', '回到聊天室，點選單中間的「每日問卷」，約 3 分鐘就會有你的第一份專屬報告。'));
+  v.append(c);
+}
+
+function show(t) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  const v = $('view'); v.textContent = '';
+  ({ report: viewReport, pack: viewPack, rec: viewRec })[t](v);
+  try { history.replaceState(null, '', '#' + t); } catch { /* 略過 */ }
+}
+
+try {
+  if (await login()) {
+    const r = await call('me');
+    if (r.status !== 200) throw new Error('讀取失敗（' + r.status + '）');
+    me = r.body;
+    $('status').hidden = true; $('main').hidden = false;
+    document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
+    const want = location.hash.slice(1);
+    show(['report', 'pack', 'rec'].includes(want) ? want : me.packs[0]?.status === 'approved' ? 'pack' : 'report');
+  }
+} catch (e) {
+  $('status').textContent = '暫時打不開：' + e.message;
+}
+</script>
+</body>
+</html>

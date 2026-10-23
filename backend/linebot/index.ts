@@ -235,11 +235,20 @@ function findBannedTerms(text, claims) {
 
 // 需求分數前三名，附上客人自己的答案當依據（報告用）
 function topNeeds(a, claims) {
-  return Object.entries(a.needs).filter(([, p]) => p > 0).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([tag, pts]) => {
+  const used = new Set();
+  const out = [];
+  const ranked = Object.entries(a.needs).filter(([, p]) => p > 0).sort((x, y) => y[1] - x[1]);
+  for (const [tag, pts] of ranked) {
+    if (out.length === 3) break;
     const ev = [...(a.evidence[tag] || [])].sort((x, y) => y.pts - x.pts);
-    const because = [...new Set(ev.map(e => e.text))].slice(0, 2);
-    return { tag, label: claims.needLabels?.[tag] ?? tag, pts, because };
-  });
+    // 「你想多照顧…」只是重述客人的選擇，不算依據；已被前面的主題用過的依據不重複放
+    const fresh = [...new Set(ev.map(e => e.text))].filter(t => !t.startsWith('你想多照顧') && !used.has(t));
+    if (ev.length && !fresh.length && out.length) continue;
+    const because = fresh.slice(0, 2);
+    because.forEach(t => used.add(t));
+    out.push({ tag, label: claims.needLabels?.[tag] ?? tag, pts, because });
+  }
+  return out;
 }
 
 // 專屬報告：只複述客人的答案與引擎做過的檢查，文字全部來自資料檔的模板，不由 AI 自由生成。
@@ -683,12 +692,14 @@ async function setupMenus() {
   return done;
 }
 
-// 主選單（預設選單）：今日電量、每日問卷、我的組合。沒有在作答的人都看這個
+// 主選單（預設選單）：今日電量、每日問卷、我的 Deerly（開 LIFF 頁）。沒有在作答的人都看這個
 async function setupHome(a: { key: string; x: number; y: number; w: number; h: number }[]) {
   if (!a) throw new Error("缺少主選單的圖");
   const act = (k: string) => k === "scan"
     ? { type: "uri", uri: LIFF_URL }
-    : { type: "postback", data: `home|${k}`, displayText: k === "quiz" ? "開始問卷" : "我的組合" };
+    : k === "me"
+    ? { type: "uri", uri: `${LIFF_URL}/me/` }
+    : { type: "postback", data: `home|${k}`, displayText: "開始問卷" };
   const created = await line("/v2/bot/richmenu", "POST", {
     size: { width: 2500, height: 1120 }, selected: false, name: "home", chatBarText: "主選單",
     areas: a.map((x) => ({ bounds: { x: x.x, y: x.y, width: x.w, height: x.h }, action: act(x.key) })),

@@ -227,11 +227,20 @@ export function findBannedTerms(text, claims) {
 
 // 需求分數前三名，附上客人自己的答案當依據（報告用）
 function topNeeds(a, claims) {
-  return Object.entries(a.needs).filter(([, p]) => p > 0).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([tag, pts]) => {
+  const used = new Set();
+  const out = [];
+  const ranked = Object.entries(a.needs).filter(([, p]) => p > 0).sort((x, y) => y[1] - x[1]);
+  for (const [tag, pts] of ranked) {
+    if (out.length === 3) break;
     const ev = [...(a.evidence[tag] || [])].sort((x, y) => y.pts - x.pts);
-    const because = [...new Set(ev.map(e => e.text))].slice(0, 2);
-    return { tag, label: claims.needLabels?.[tag] ?? tag, pts, because };
-  });
+    // 「你想多照顧…」只是重述客人的選擇，不算依據；已被前面的主題用過的依據不重複放
+    const fresh = [...new Set(ev.map(e => e.text))].filter(t => !t.startsWith('你想多照顧') && !used.has(t));
+    if (ev.length && !fresh.length && out.length) continue;
+    const because = fresh.slice(0, 2);
+    because.forEach(t => used.add(t));
+    out.push({ tag, label: claims.needLabels?.[tag] ?? tag, pts, because });
+  }
+  return out;
 }
 
 // 專屬報告：只複述客人的答案與引擎做過的檢查，文字全部來自資料檔的模板，不由 AI 自由生成。

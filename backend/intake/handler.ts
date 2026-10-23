@@ -149,6 +149,7 @@ Deno.serve(async (req) => {
     const uid = await findUser(sub, b.action === "consent");
     if (!uid) {
       if (b.action === "mine") return reply({ consented: false, pack: null });
+      if (b.action === "me") return reply({ consented: false, packs: [], scans: [] });
       if (b.action === "delete") return reply({ ok: true });
       return reply({ error: "consent" }, 403);
     }
@@ -177,6 +178,38 @@ Deno.serve(async (req) => {
         })
         : null;
       return reply({ consented, pack: { status: p.status, createdAt: p.created_at, items } });
+    }
+
+    // 「我的 Deerly」頁：過去的報告、組合（核准後才有成分）、量測紀錄
+    if (b.action === "me") {
+      const consented = await hasConsent(uid);
+      const pr = await db.from("packs").select("id,status,created_at,item_ids,result,intakes(answers)")
+        .eq("user_id", uid).order("created_at", { ascending: false }).limit(12);
+      if (pr.error) throw pr.error;
+      // deno-lint-ignore no-explicit-any
+      const rows: any[] = pr.data ?? [];
+      const names = (p: { item_ids: string[] }) => p.item_ids.map((id) => itemById(id)?.name ?? id);
+      const packs = rows.map((p, i) => {
+        const approved = p.status === "approved";
+        // 與前一份「已核准」組合比較，列出這個月加了什麼、拿掉什麼
+        const prev = approved ? rows.slice(i + 1).find((x) => x.status === "approved") : null;
+        const now = names(p), before = prev ? names(prev) : null;
+        return {
+          id: p.id, status: p.status, createdAt: p.created_at,
+          report: p.intakes?.answers ? buildReport(p.result, p.intakes.answers, DATA) : null,
+          items: approved
+            ? p.item_ids.map((id: string) => {
+              const it = itemById(id);
+              return { name: it?.name ?? id, dailyCapsules: it?.dailyCapsules ?? null, reason: (p.result.items ?? []).find((x: { id: string }) => x.id === id)?.reason ?? "" };
+            })
+            : null,
+          change: before ? { added: now.filter((n) => !before.includes(n)), removed: before.filter((n) => !now.includes(n)) } : null,
+        };
+      });
+      const sc = await db.from("scans").select("scanned_at,bpm,quality,watch_bpm")
+        .eq("user_id", uid).order("scanned_at", { ascending: false }).limit(60);
+      if (sc.error) throw sc.error;
+      return reply({ consented, packs, scans: sc.data });
     }
 
     if (b.action === "delete") {

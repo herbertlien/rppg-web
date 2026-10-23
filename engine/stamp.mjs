@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const v = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);   // 例：202610230512
 const root = new URL('../', import.meta.url);
 writeFileSync(new URL('engine/version.json', root), JSON.stringify({ v }) + '\n');
-for (const f of ['quiz/index.html', 'review/index.html', 'engine/index.html']) {
+for (const f of ['quiz/index.html', 'review/index.html', 'me/index.html', 'engine/index.html']) {
   const u = new URL(f, root);
   const s = readFileSync(u, 'utf8');
   const out = s.replace(/const V = '[^']*';/, `const V = '${v}';`).replace(/style\.css\?v=[^"]*/, `style.css?v=${v}`);
