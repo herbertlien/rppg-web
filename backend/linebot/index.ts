@@ -368,7 +368,14 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
     await line(`/v2/bot/user/${sub}/richmenu`, "DELETE").catch(() => {});
     const sel = new Set(s.multi);
     const items = q.options.map((o) => ({ label: `${sel.has(o.value) ? "✓ " : ""}${o.chip ?? o.label}`, data: `m|${q.id}|${o.value}` }));
-    messages.push({ type: "text", text, quickReply: quick([...items, { label: "完成", data: `d|${q.id}` }, ...back]) });
+    // LINE 快速回覆最多 13 個。選項太多時把「上一題」拿掉，改成輸入文字
+    let list = [...items, { label: "完成", data: `d|${q.id}` }, ...back];
+    let more = "";
+    if (list.length > 13) {
+      list = list.slice(0, items.length + 1);
+      if (back.length) more = "\n要回上一題請輸入「上一題」。";
+    }
+    messages.push({ type: "text", text: text + more, quickReply: quick(list) });
   }
   await reply(replyToken, messages);
 }
@@ -487,6 +494,7 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 
 async function onText(sub: string, replyToken: string, text: string) {
   if (/^(開始問卷|開始|問卷)$/.test(text.trim())) return startFlow(sub, replyToken);
+  if (text.trim() === "上一題") return onPostback(sub, replyToken, "back");
   const uid = await findUser(sub, false);
   const s = uid ? await loadSession(uid) : null;
   if (s?.cur) return askQuestion(sub, replyToken, s, "請用下方的按鈕作答。");
