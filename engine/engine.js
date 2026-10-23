@@ -265,3 +265,11 @@ export function buildReport(result, answers, data) {
     tip: tip ? tip.text : null,
   };
 }
+
+// 今日一句：從句庫挑，不是即時生成。客人有重點主題時，三天有兩天挑與他相關的句子，其餘挑通用句。
+export function pickDaily(daily, tags, dayNumber) {
+  const mine = daily.lines.filter(l => tags.includes(l.tag));
+  const gen = daily.lines.filter(l => l.tag === 'general');
+  const pool = mine.length && dayNumber % 3 !== 0 ? mine : gen;
+  return pool[dayNumber % pool.length].text;
+}
