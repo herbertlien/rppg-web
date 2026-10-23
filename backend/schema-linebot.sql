@@ -18,3 +18,6 @@ create table if not exists public.rich_menus (
 alter table public.quiz_sessions enable row level security;
 alter table public.rich_menus enable row level security;
 revoke all on public.quiz_sessions, public.rich_menus from anon, authenticated;
+
+-- 後端函式（service_role）要有讀寫權限；Supabase 對手動建立的資料表不一定自動授權
+grant all on public.quiz_sessions, public.rich_menus to service_role;
