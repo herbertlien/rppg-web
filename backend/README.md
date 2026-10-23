@@ -18,3 +18,15 @@
 
 動作：`whoami`、`consent`、`mine`、`submit`、`delete`（客人）；`review_list`、`review_check`、`review_decide`（審核者）。
 不接單的回答不保存；配方核准前客人只看到「整理中」；含未確認品項或藥師未核定時無法核准。
+
+## LINE 聊天室問卷（linebot）
+
+在官方帳號聊天室用下方選單圖一題一題作答，答完走和網頁問卷同一套規則引擎，進同一個審核頁。
+
+- 資料表：`schema-linebot.sql`（`quiz_sessions` 作答進度、`rich_menus` 題目對應的選單 ID）。
+- 函式：`linebot/handler.ts` → `node backend/linebot/build.mjs` 產生 `linebot/index.ts`，貼進 Supabase Edge Function `linebot`（Verify JWT 要關）。
+- Secrets：`LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`（Messaging API 頻道的），`ADMIN_LINE_SUBS`（和 intake 共用的同一個值也要設在這支函式）。
+- 選單圖：`node engine/menugen.mjs`（需要 playwright）讀題目產生 `menus/*.png` 與 `menus/areas.json`，推上 GitHub Pages 後，審核者呼叫 `setup` 動作建立選單。題目改了要重新產圖、重新 `setup`。
+- Webhook URL：`https://<project>.supabase.co/functions/v1/linebot`，在 LINE Developers 的 Messaging API 頁設定並開啟「Use webhook」。
+- 單選題用選單圖；複選題用快速回覆（可即時打勾）；每題有「上一題」。
+- 測試：本機 Postgres + PostgREST，LINE API 用模擬回應（見 PR 說明）。

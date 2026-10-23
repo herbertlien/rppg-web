@@ -98,24 +98,29 @@
       "options": [
         {
           "value": "no",
-          "label": "沒有"
+          "label": "沒有",
+          "chip": "沒有"
         },
         {
           "value": "occasional",
           "label": "只有不舒服時偶爾吃（例如止痛藥、感冒藥、過敏藥）",
-          "warn": "客人偶爾服用成藥，請確認沒有和品項衝突"
+          "warn": "客人偶爾服用成藥，請確認沒有和品項衝突",
+          "chip": "偶爾吃成藥"
         },
         {
           "value": "contraceptive",
           "label": "只有口服避孕藥",
-          "reject": "contraceptive"
+          "reject": "contraceptive",
+          "chip": "只有口服避孕藥"
         },
         {
           "value": "regular",
           "label": "有，每天或固定吃（例如抗凝血藥、阿斯匹靈、慢性病用藥）",
-          "reject": "medication"
+          "reject": "medication",
+          "chip": "每天或固定吃藥"
         }
-      ]
+      ],
+      "hint": "偶爾吃：例如止痛藥、感冒藥、過敏藥。固定吃：例如抗凝血藥、阿斯匹靈、慢性病用藥。"
     },
     {
       "id": "conditions",
@@ -305,7 +310,8 @@
         {
           "value": "beauty",
           "label": "美容類（玻尿酸、彈力蛋白、膠原以外的美容保健品）",
-          "warn": "客人在吃美容類保健品，請詢問品項，避免和葡萄籽、維 C 重複"
+          "warn": "客人在吃美容類保健品，請詢問品項，避免和葡萄籽、維 C 重複",
+          "chip": "美容類"
         },
         {
           "value": "other",
@@ -317,7 +323,8 @@
           "label": "目前沒有",
           "exclusive": true
         }
-      ]
+      ],
+      "hint": "美容類是指玻尿酸、彈力蛋白等（膠原蛋白請選上面的膠原蛋白）。"
     },
     {
       "id": "spend",
