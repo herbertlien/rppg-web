@@ -21,8 +21,14 @@ const db = createClient(
   { auth: { persistSession: false } },
 );
 
+// 管理動作從審核頁（網頁）呼叫，需要 CORS；LINE 伺服器不受影響
+const cors = {
+  "Access-Control-Allow-Origin": "https://herbertlien.github.io",
+  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
 
 // ---------- LINE API ----------
 async function line(path: string, method = "POST", body?: unknown, host = "api.line.me") {
@@ -301,6 +307,7 @@ async function setupMenus() {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (req.method === "GET") return json({ ok: true });
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const raw = await req.text();
