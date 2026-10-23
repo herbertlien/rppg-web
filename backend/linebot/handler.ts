@@ -174,7 +174,47 @@ async function finish(sub: string, replyToken: string, s: Session) {
     result, item_ids: result.items.map((i: { id: string }) => i.id), status: "needs_review",
   });
   if (pk.error) throw pk.error;
-  return reply(replyToken, [{ type: "text", text: "謝謝你！我們會依你的回答整理一包，確認後在這裡通知你。" }]);
+  return reply(replyToken, [
+    { type: "text", text: "謝謝你！這是依你的回答整理的專屬報告。品項我們確認後，會在這裡通知你。" },
+    reportFlex(buildReport(result, s.answers, DATA)),
+  ]);
+}
+
+// ---------- 專屬報告（LINE Flex 卡片）----------
+type Report = { focus: { label: string; because: string[] }[]; taking: string[]; tier: number; avoided: string[]; safety: string; tip: string | null };
+const T = (text: string, o: Record<string, unknown> = {}) => ({ type: "text", text, wrap: true, ...o });
+const bubble = (title: string, lines: unknown[], footer?: unknown) => ({
+  type: "bubble", size: "mega",
+  styles: { body: { backgroundColor: "#F6F1EA" }, footer: { backgroundColor: "#F6F1EA" } },
+  body: { type: "box", layout: "vertical", spacing: "lg", paddingAll: "20px", contents: [
+    T("DEERLY 專屬報告", { size: "xs", weight: "bold", color: "#2F7D5B" }),
+    T(title, { size: "xl", weight: "bold", color: "#1E2A24" }),
+    ...lines,
+  ] },
+  ...(footer ? { footer } : {}),
+});
+
+function reportFlex(r: Report) {
+  const bubbles: unknown[] = [];
+  if (r.focus.length) {
+    bubbles.push(bubble("你的重點", r.focus.flatMap((f, i) => [
+      T(`${i + 1}　${f.label}`, { size: "lg", weight: "bold", color: "#1F5C42" }),
+      T(f.because.join("；") || "依你的回答", { size: "md", color: "#7A8780" }),
+    ])));
+  }
+  const org: unknown[] = [];
+  if (r.taking.length) org.push(T(`你現在固定吃：${r.taking.join("、")}`, { size: "md", color: "#1E2A24" }));
+  org.push(T(`整理成一包，每天 ${r.tier} 項，品項由我們確認後通知你。`, { size: "md", color: "#1E2A24" }));
+  for (const a of r.avoided) org.push(T(`✓ ${a}`, { size: "md", color: "#1F5C42" }));
+  org.push(T(r.safety, { size: "sm", color: "#7A8780" }));
+  bubbles.push(bubble("我們幫你整理了什麼", org));
+  bubbles.push(bubble("先試一件小事", [
+    T(r.tip ?? "先維持目前的作息。", { size: "lg", color: "#1E2A24" }),
+    T("再量幾次「今日電量」，就能和你自己的平常比較。", { size: "md", color: "#7A8780" }),
+  ], { type: "box", layout: "vertical", paddingAll: "16px", contents: [
+    { type: "button", style: "primary", color: "#2F7D5B", height: "md", action: { type: "uri", label: "量今日電量", uri: LIFF_URL } },
+  ] }));
+  return { type: "flex", altText: "你的 Deerly 專屬報告", contents: { type: "carousel", contents: bubbles } };
 }
 
 // 套用一個答案後往下走
@@ -197,6 +237,7 @@ async function advance(sub: string, replyToken: string, s: Session, q: Q, notice
 }
 
 const startQuick = quick([{ label: "開始問卷", text: "開始問卷" }]);
+const reportQuick = quick([{ label: "看專屬報告", text: "我的報告" }]);
 
 // 主選單「我的組合」：看最近一份的狀態
 async function showPack(sub: string, replyToken: string) {
@@ -208,10 +249,22 @@ async function showPack(sub: string, replyToken: string) {
   if (!p?.data) return reply(replyToken, [{ type: "text", text: "你還沒有組合。回答 20 題問卷，我們就能整理一份給你。", quickReply: startQuick }]);
   if (p.data.status === "approved") {
     const names = (p.data.item_ids as string[]).map((id) => DATA.items.items.find((i: { id: string }) => i.id === id)?.name ?? id);
-    return reply(replyToken, [{ type: "text", text: `你目前的每日組合：\n${names.map((n) => `・${n}`).join("\n")}\n\n每月會依你的狀況調整一次。` }]);
+    return reply(replyToken, [{ type: "text", text: `你目前的每日組合：\n${names.map((n) => `・${n}`).join("\n")}\n\n每月會依你的狀況調整一次。`, quickReply: reportQuick }]);
   }
   if (p.data.status === "returned") return reply(replyToken, [{ type: "text", text: "上一份組合需要再調整，請重新回答問卷。", quickReply: startQuick }]);
-  return reply(replyToken, [{ type: "text", text: "你的組合整理中，確認後會在這裡通知你。" }]);
+  return reply(replyToken, [{ type: "text", text: "你的組合整理中，確認後會在這裡通知你。", quickReply: reportQuick }]);
+}
+
+// 重看最近一份問卷的專屬報告
+async function showReport(sub: string, replyToken: string) {
+  const uid = await findUser(sub, false);
+  const p = uid
+    ? await db.from("packs").select("result,intakes(answers)").eq("user_id", uid).order("created_at", { ascending: false }).limit(1).maybeSingle()
+    : null;
+  if (p?.error) throw p.error;
+  const answers = (p?.data as { intakes?: { answers?: Record<string, unknown> } } | null)?.intakes?.answers;
+  if (!p?.data || !answers) return reply(replyToken, [{ type: "text", text: "你還沒有報告。回答 20 題問卷，我們就能整理一份給你。", quickReply: startQuick }]);
+  return reply(replyToken, [reportFlex(buildReport(p.data.result, answers, DATA))]);
 }
 
 // 掃臉完成後，使用者端會自動送出「我量好了」，這裡回覆最新一次的結果
@@ -314,6 +367,7 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 async function onText(sub: string, replyToken: string, text: string) {
   if (/^(開始問卷|開始|問卷)$/.test(text.trim())) return startFlow(sub, replyToken);
   if (/^我量好了/.test(text.trim())) return onScanDone(sub, replyToken);
+  if (/^(我的報告|報告|看報告)$/.test(text.trim())) return showReport(sub, replyToken);
   if (text.trim() === "我的組合") return showPack(sub, replyToken);
   if (text.trim() === "上一題") return onPostback(sub, replyToken, "back");
   const uid = await findUser(sub, false);

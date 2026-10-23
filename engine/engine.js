@@ -131,7 +131,7 @@ export function buildPack(answers, data) {
   items.items.forEach((it, order) => {
     if (!it.enabled) return;
     const hit = (it.excludeIf || []).find(f => a.flags.has(f));
-    if (hit) { skipped.push({ id: it.id, name: it.name, why: `客人回答「${a.flagLabels[hit]}」` }); return; }
+    if (hit) { skipped.push({ id: it.id, name: it.name, why: `客人回答「${a.flagLabels[hit]}」`, flag: hit, label: a.flagLabels[hit] }); return; }
     let score = 0;
     let best = null;   // 貢獻最多的那個回答，拿來寫理由
     for (const [tag, w] of Object.entries(it.needs || {})) {
@@ -190,6 +190,7 @@ export function buildPack(answers, data) {
       reason: c.best ? `因為${c.best.text}` : '',
     })),
     totals: totalRows,
+    focus: topNeeds(a, claims),
     skipped,
     warnings,
   };
@@ -222,4 +223,36 @@ export function checkPack(itemIds, data) {
 export function findBannedTerms(text, claims) {
   const t = String(text).replace(/\s+/g, '');
   return claims.bannedTerms.filter(w => t.includes(w));
+}
+
+// 需求分數前三名，附上客人自己的答案當依據（報告用）
+function topNeeds(a, claims) {
+  return Object.entries(a.needs).filter(([, p]) => p > 0).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([tag, pts]) => {
+    const ev = [...(a.evidence[tag] || [])].sort((x, y) => y.pts - x.pts);
+    const because = [...new Set(ev.map(e => e.text))].slice(0, 2);
+    return { tag, label: claims.needLabels?.[tag] ?? tag, pts, because };
+  });
+}
+
+// 專屬報告：只複述客人的答案與引擎做過的檢查，文字全部來自資料檔的模板，不由 AI 自由生成。
+// 前三段不含品項成分與數量，所以問卷一結束就能給，不必等審核。
+export function buildReport(result, answers, data) {
+  const { questions, claims } = data;
+  const sq = questions.questions.find(q => q.id === 'supplements');
+  const picked = [].concat(answers.supplements || []);
+  const taking = sq ? sq.options.filter(o => picked.includes(o.value) && !o.exclusive).map(o => o.chip || o.label) : [];
+  const avoided = (result.skipped || []).filter(x => x.flag).slice(0, 3).map(x => {
+    if (x.flag.startsWith('taking_')) return `你已在吃「${x.label}」，這包不再放${x.name}`;
+    if (x.flag.startsWith('allergy_')) return `你對「${x.label}」過敏，所以沒放${x.name}`;
+    return `依你的回答「${x.label}」，先不放${x.name}`;
+  });
+  const tip = (claims.tips || []).find(t => Object.entries(t.when).every(([k, v]) => answers[k] === v));
+  return {
+    focus: result.focus || [],
+    taking,
+    tier: result.tier,
+    avoided,
+    safety: '整包的成分加總，會逐項對照每日上限檢查，確認後才通知你。',
+    tip: tip ? tip.text : null,
+  };
 }
