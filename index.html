@@ -11,6 +11,9 @@
   h1{font-size:20px;margin:8px 0}
   .box{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:3/4}
   video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #ovtxt{position:absolute;left:0;right:0;top:12px;text-align:center;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6);pointer-events:none}
+  #ovtxt .t{font-size:22px;font-weight:700;display:inline-block;padding:6px 14px;border-radius:14px;background:rgba(0,0,0,.35)}
+  #ovtxt .n{font-size:64px;font-weight:700;line-height:1.1;opacity:.85}
   #ov{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
   button{width:100%;padding:14px;margin:10px 0 0;font-size:17px;border:0;border-radius:10px;background:var(--ac);color:#fff}
   button:disabled{opacity:.4}
@@ -40,7 +43,7 @@
 <body>
 <h1>rPPG 量測雛形</h1>
 <p class="mut">請在明亮、均勻的光線下，臉對著前鏡頭，手機放穩，30 秒內不要說話或大幅移動。</p>
-<div class="box"><video id="v" playsinline muted></video><canvas id="ov"></canvas></div>
+<div class="box"><video id="v" playsinline muted></video><canvas id="ov"></canvas><div id="ovtxt" hidden></div></div>
 <button id="go">開始（會要求使用前鏡頭）</button>
 <div class="card">
   <div id="st" class="mut">尚未開始</div>
@@ -215,6 +218,15 @@ function roiMean(lm, idx) {
   return { m: [r / n, g / n, b / n], box: [x, y, w, h] };
 }
 
+// 疊在鏡頭畫面上方的大字提示；title 為空就隱藏
+function overlay(title, big) {
+  const o = $('ovtxt');
+  o.hidden = !title;
+  o.replaceChildren();
+  if (!title) return;
+  const t = document.createElement('div'); t.className = 't'; t.textContent = title; o.append(t);
+  if (big != null) { const n = document.createElement('div'); n.className = 'n'; n.textContent = big; o.append(n); }
+}
 const QMIN = 0.35;   // 低於此品質不顯示數字
 function show(r, final) {
   if (!final) { $('hr').textContent = '…'; $('hrunit').textContent = ''; $('q').textContent = '量測中，完成後顯示結果（訊號品質 ' + (r.quality > .55 ? '良好' : r.quality > QMIN ? '普通' : '偏弱') + '）'; return; }
@@ -263,7 +275,7 @@ let relaxMode = false, beforeRes = null;
 async function run() {
   $('go').disabled = true; $('csv').disabled = true; rows = []; lastResult = null; $('hr').textContent = '--'; $('hrunit').textContent = ''; $('cmp').textContent = ''; $('bat').hidden = true;
   try {
-    stage('等待模型載入完成…'); await ready; stage('模型就緒，啟動鏡頭…');
+    stage('等待模型載入完成…'); overlay('準備中…'); await ready; stage('模型就緒，啟動鏡頭…'); overlay('啟動鏡頭…');
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
     v.srcObject = stream; await v.play();
     grab.width = v.videoWidth; grab.height = v.videoHeight; ov.width = v.videoWidth; ov.height = v.videoHeight;
@@ -288,13 +300,16 @@ async function run() {
         } else noFace++;
         const el = t0 === null ? 0 : (now - t0) / 1000;
         $('st').textContent = noFace > 15 ? '找不到臉，請對準鏡頭' : '量測中… ' + Math.min(DUR, Math.round(el)) + ' / ' + DUR + ' 秒';
+        if (noFace > 15) overlay('找不到臉，請對準鏡頭');
+        else if (t0 === null) overlay('請把臉放進畫面');
+        else overlay('量測中，請保持不動', Math.max(0, DUR - Math.floor(el)));
         if (el > 12 && el - lastShown > 2 && rows.length > 200) { lastShown = el; const s = series(Math.max(0, rows.findIndex(r => r.t > el - 15))); show(analyze(s.t, s.ch), false); }
         if (el >= DUR) return done();
         v.requestVideoFrameCallback ? v.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);
       };
       v.requestVideoFrameCallback ? v.requestVideoFrameCallback(tick) : requestAnimationFrame(tick);
     });
-    stream.getTracks().forEach(t => t.stop()); octx.clearRect(0, 0, ov.width, ov.height);
+    stream.getTracks().forEach(t => t.stop()); octx.clearRect(0, 0, ov.width, ov.height); overlay(rows.length < 300 ? '有效畫面太少，請重測' : '量測完成'); setTimeout(() => overlay(''), 2500);
     if (rows.length < 300) { $('st').textContent = '有效畫面太少（' + rows.length + ' 幀），請重測'; }
     else {
       const s = series(); lastResult = analyze(s.t, s.ch); show(lastResult, true);
@@ -303,7 +318,7 @@ async function run() {
       $('csv').disabled = false;
       if (relaxMode) relaxDone(lastResult); else { curBase = baselineOf(cloud.scans); renderCompare(lastResult); offerRelax(lastResult); onScanDone(); }
     }
-  } catch (e) { $('st').textContent = '失敗：' + e.name + ' ' + e.message; }
+  } catch (e) { $('st').textContent = '失敗：' + e.name + ' ' + e.message; overlay('失敗：' + e.name); }
   $('go').disabled = false; $('go').textContent = '重新量測';
 }
 
