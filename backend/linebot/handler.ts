@@ -125,37 +125,21 @@ async function menuIds(): Promise<Record<string, string>> {
     .map((x: { question_id: string; rich_menu_id: string }) => [x.question_id, x.rich_menu_id]));
 }
 
-// 送出目前這一題：單選題換上選單圖，複選題用快速回覆
+// 送出目前這一題：換上這一題的選單圖
 async function askQuestion(sub: string, replyToken: string, s: Session, notice?: string, intro = false) {
   const q = QS.find((x) => x.id === s.cur)!;
   const n = QS.filter((x) => isShown(x, s.answers)).indexOf(q) + 1;
   const total = QS.filter((x) => isShown(x, s.answers)).length;
-  const text = `（${n}/${total}）${q.text}${q.hint ? `\n${q.hint}` : ""}${q.type === "multi" ? `\n${q.max ? `最多選 ${q.max} 項，` : ""}可以複選。按鈕可以左右滑動，選好請按最左邊的「完成 ✔」。` : ""}`;
+  const text = `（${n}/${total}）${q.text}${q.hint ? `\n${q.hint}` : ""}${q.type === "multi" ? `\n${q.max ? `最多選 ${q.max} 項，` : ""}可以複選：點選項加入、再點一次取消，選好請按選單最下面的「完成」。` : ""}`;
   const back = s.history.length ? [{ label: "‹ 上一題", data: "back" }] : [];
   const messages: unknown[] = [];
   if (notice) messages.push({ type: "text", text: notice });
   if (intro) messages.push({ type: "image", originalContentUrl: `${ASSET_BASE}intro.png`, previewImageUrl: `${ASSET_BASE}intro.png` });
-  if (q.type === "single") {
-    const ids = await menuIds();
-    if (ids[q.id]) await line(`/v2/bot/user/${sub}/richmenu/${ids[q.id]}`);
-    // 上一題是複選（鍵盤模式）時，LINE 不會自動展開選單，提醒使用者點左下角的 ☰
-    const prev = QS.find((x) => x.id === s.history[s.history.length - 1]);
-    const tip = prev?.type === "multi" ? "\n請點輸入框左邊的「☰」展開選項。" : "";
-    messages.push({ type: "text", text: text + tip, ...(back.length ? { quickReply: quick(back) } : {}) });
-  } else {
-    await line(`/v2/bot/user/${sub}/richmenu`, "DELETE").catch(() => {});
-    const sel = new Set(s.multi);
-    const items = q.options.map((o) => ({ label: `${sel.has(o.value) ? "✓ " : ""}${o.chip ?? o.label}`, data: `m|${q.id}|${o.value}` }));
-    // 「完成」放最左邊，不用滑到底才找得到。LINE 快速回覆最多 13 個，選項太多時把「上一題」拿掉，改成輸入文字
-    const done = { label: "完成 ✔", data: `d|${q.id}` };
-    let list = [done, ...items, ...back];
-    let more = "";
-    if (list.length > 13) {
-      list = list.slice(0, items.length + 1);
-      if (back.length) more = "\n要回上一題請輸入「上一題」。";
-    }
-    messages.push({ type: "text", text: text + more, quickReply: quick(list) });
-  }
+  // 單選、複選都用下方選單圖；複選的選單最下面有「完成」，點選項只回報目前選了什麼，選單不換
+  const ids = await menuIds();
+  if (ids[q.id]) await line(`/v2/bot/user/${sub}/richmenu/${ids[q.id]}`);
+  else await line(`/v2/bot/user/${sub}/richmenu`, "DELETE").catch(() => {});
+  messages.push({ type: "text", text, ...(back.length ? { quickReply: quick(back) } : {}) });
   await reply(replyToken, messages);
 }
 
@@ -309,7 +293,9 @@ async function onPostback(sub: string, replyToken: string, data: string) {
     }
     s.multi = q.options.map((x) => x.value).filter((v) => sel.has(v));
     await saveSession(s);
-    return askQuestion(sub, replyToken, s, notice);
+    const names = s.multi.map((v) => { const x = q.options.find((y) => y.value === v)!; return x.chip ?? x.label; });
+    const now = names.length ? `目前選了：${names.join("、")}` : "目前還沒選";
+    return reply(replyToken, [{ type: "text", text: `${notice ? notice + "\n" : ""}${now}\n（再點一次可取消，選好請按「完成」）` }]);
   }
   if (kind === "d" && q.type === "multi") {
     if (!s.multi.length) return askQuestion(sub, replyToken, s, "請至少選一項，沒有的話選「都沒有」。");
@@ -347,14 +333,16 @@ async function setupMenus() {
   const old = await db.from("rich_menus").select("question_id,rich_menu_id");
   if (old.error) throw old.error;
   const done: string[] = [];
-  for (const q of QS.filter((x) => x.type === "single")) {
+  for (const q of QS) {
     const a = areas[q.id];
     if (!a) throw new Error(`缺少 ${q.id} 的選單圖`);
     const created = await line("/v2/bot/richmenu", "POST", {
       size: { width: 2500, height: 1686 }, selected: true, name: `q-${q.id}`, chatBarText: "點這裡作答",
       areas: a.map((x: { x: number; y: number; w: number; h: number; value: string }) => ({
         bounds: { x: x.x, y: x.y, width: x.w, height: x.h },
-        action: { type: "postback", data: `a|${q.id}|${x.value}`, displayText: (q.options.find((o) => o.value === x.value)?.chip ?? q.options.find((o) => o.value === x.value)?.label ?? "").slice(0, 300) },
+        action: x.value === "__done"
+          ? { type: "postback", data: `d|${q.id}`, displayText: "完成 ✔" }
+          : { type: "postback", data: `${q.type === "multi" ? "m" : "a"}|${q.id}|${x.value}`, displayText: (q.options.find((o) => o.value === x.value)?.chip ?? q.options.find((o) => o.value === x.value)?.label ?? "").slice(0, 300) },
       })),
     });
     const img = await fetch(`${ASSET_BASE}${q.id}.png`);
