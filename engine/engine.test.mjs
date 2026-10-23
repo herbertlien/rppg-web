@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildPack, checkPack, validateData, findBannedTerms } from './engine.js';
+import { buildPack, checkPack, validateData, findBannedTerms, buildReport } from './engine.js';
 
 const load = f => JSON.parse(readFileSync(new URL(`./data/${f}.json`, import.meta.url), 'utf8'));
 const data = { items: load('items'), limits: load('limits'), questions: load('questions'), claims: load('claims') };
@@ -185,4 +185,36 @@ test('口服避孕藥目前不接單，且訊息有寫；經期與頭髮需求�
   const p = buildPack({ ...base, focus: ['period', 'hair'], sleep_hours: '7plus', sleep_quality: 'good', stress: 'low', caffeine: '0_1', meals_out: 'few', veg: '3', tier: 'advanced' }, data);
   const ids = p.items.map(i => i.id);
   assert.ok(ids.includes('magnesium') && ids.includes('collagen'), ids.join());
+});
+
+test('專屬報告：重點取分數前三名並引用客人的答案', () => {
+  const r = buildReport(buildPack(base, data), base, data);
+  assert.ok(r.focus.length >= 1 && r.focus.length <= 3);
+  for (const f of r.focus) { assert.ok(f.label && f.label !== f.tag); assert.ok(f.because.length >= 1); }
+});
+
+test('專屬報告：已在吃的品項會列為已避開，沒有就不列', () => {
+  const none = buildReport(buildPack(base, data), base, data);
+  assert.deepEqual(none.avoided, []);
+  const ans = { ...base, supplements: ['b'] };
+  const r = buildReport(buildPack(ans, data), ans, data);
+  assert.deepEqual(r.taking, ['B 群']);
+  assert.ok(r.avoided.some(t => t.includes('你已在吃「B 群」')), JSON.stringify(r.avoided));
+});
+
+test('專屬報告：小事只給一句，依序比對，沒有符合就給預設句', () => {
+  assert.match(buildReport(buildPack(base, data), base, data).tip, /咖啡因/);
+  const calm = { ...base, caffeine: '0_1', sleep_hours: '7plus', veg: '3', exercise: '3plus' };
+  assert.match(buildReport(buildPack(calm, data), calm, data).tip, /維持目前的作息/);
+});
+
+test('專屬報告：所有文字都不含禁用詞', () => {
+  const texts = [];
+  for (const c of [base, { ...base, supplements: ['b', 'fish_oil'], allergy: ['sesame'] }]) {
+    const r = buildReport(buildPack(c, data), c, data);
+    texts.push(r.safety, r.tip, ...r.avoided, ...r.focus.flatMap(f => [f.label, ...f.because]));
+  }
+  for (const t of data.claims.tips) texts.push(t.text);
+  for (const t of Object.values(data.claims.needLabels)) texts.push(t);
+  for (const t of texts) assert.deepEqual(findBannedTerms(t, data.claims), [], t);
 });
