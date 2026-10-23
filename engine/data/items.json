@@ -39,7 +39,8 @@
         "energy": 3,
         "stress": 2,
         "eating_out": 2,
-        "drinking": 1
+        "drinking": 1,
+        "period": 2
       },
       "excludeIf": [
         "taking_b",
@@ -114,7 +115,8 @@
         "sleep": 3,
         "stress": 2,
         "exercise": 2,
-        "caffeine": 1
+        "caffeine": 1,
+        "period": 2
       },
       "excludeIf": []
     },
@@ -152,7 +154,8 @@
         "low_veg": 1,
         "exercise": 1,
         "seasonal": 2,
-        "skin": 1
+        "skin": 1,
+        "hair": 2
       },
       "excludeIf": []
     },
@@ -256,7 +259,8 @@
       },
       "needs": {
         "skin": 3,
-        "exercise": 1
+        "exercise": 1,
+        "hair": 2
       },
       "excludeIf": [
         "allergy_fish",
