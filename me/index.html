@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>我的 Deerly</title>
-<link rel="stylesheet" href="../engine/style.css?v=202610231723">
+<link rel="stylesheet" href="../engine/style.css?v=202610231805">
 <style>
   body{font-size:18px}
   h1{font-size:24px;margin:8px 0 12px}
@@ -27,6 +27,8 @@
   .rec .bar2 i{display:block;height:100%;background:var(--ac)}
   .rec .n{width:64px;text-align:right}
   .big{font-size:22px;font-weight:600}
+  .daily{background:var(--me)}
+  .daily .big{font-size:21px;line-height:1.5}
   a.btn{display:block;text-align:center;text-decoration:none;padding:14px;margin-top:12px;font-size:18px;border-radius:12px;background:var(--ac);color:#fff}
 </style>
 </head>
@@ -34,6 +36,7 @@
 <h1>我的 Deerly</h1>
 <p id="status" class="mut">載入中…</p>
 <div id="main" hidden>
+  <div class="card daily"><div class="date">今日一句</div><div id="daily" class="big"></div></div>
   <div class="tabs"><button data-t="report">報告</button><button data-t="pack">組合</button><button data-t="rec">紀錄</button></div>
   <div id="view"></div>
 </div>
@@ -41,7 +44,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
 // 版本檢查：LINE 會快取舊網頁，發現有新版就帶版本號重新載入一次
-const V = '202610231723';
+const V = '202610231805';
 {
   const u = new URL(location.href);
   try {
@@ -50,6 +53,7 @@ const V = '202610231723';
   } catch { /* 讀不到版本檔就用目前的版本 */ }
 }
 const { login, call } = await import(`../engine/api.js?v=${V}`);
+const { pickDaily } = await import(`../engine/engine.js?v=${V}`);
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -163,6 +167,11 @@ try {
     const r = await call('me');
     if (r.status !== 200) throw new Error('讀取失敗（' + r.status + '）');
     me = r.body;
+    try {
+      const daily = await fetch(`../engine/data/daily.json?v=${V}`).then(x => x.json());
+      const tags = (me.packs[0]?.report?.focus || []).map(f => f.tag);
+      $('daily').textContent = pickDaily(daily, tags, Math.floor((Date.now() + 8 * 36e5) / 864e5));
+    } catch { document.querySelector('.daily').hidden = true; }
     $('status').hidden = true; $('main').hidden = false;
     document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
     const want = location.hash.slice(1);

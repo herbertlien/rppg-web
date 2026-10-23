@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildPack, checkPack, validateData, findBannedTerms, buildReport } from './engine.js';
+import { buildPack, checkPack, validateData, findBannedTerms, buildReport, pickDaily } from './engine.js';
 
 const load = f => JSON.parse(readFileSync(new URL(`./data/${f}.json`, import.meta.url), 'utf8'));
 const data = { items: load('items'), limits: load('limits'), questions: load('questions'), claims: load('claims') };
@@ -225,4 +225,18 @@ test('專屬報告：所有文字都不含禁用詞', () => {
   for (const t of data.claims.tips) texts.push(t.text);
   for (const t of Object.values(data.claims.needLabels)) texts.push(t);
   for (const t of texts) assert.deepEqual(findBannedTerms(t, data.claims), [], t);
+});
+
+test('今日一句：句庫不含禁用詞、標籤有效、句子不長，挑選有變化', () => {
+  const daily = load('daily');
+  const tags = new Set([...Object.keys(data.claims.needLabels), 'general']);
+  for (const l of daily.lines) {
+    assert.ok(tags.has(l.tag), l.tag);
+    assert.ok(l.text.length <= 40, l.text);
+    assert.deepEqual(findBannedTerms(l.text, data.claims), [], l.text);
+  }
+  assert.equal(new Set(daily.lines.map(l => l.text)).size, daily.lines.length);
+  const week = Array.from({ length: 7 }, (_, d) => pickDaily(daily, ['sleep'], 20000 + d));
+  assert.ok(new Set(week).size >= 5, week.join('|'));
+  assert.ok(pickDaily(daily, [], 5));
 });
