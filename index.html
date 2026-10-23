@@ -38,11 +38,15 @@
   #breath.in{transform:scale(1.35)}
   .mut{color:var(--mut);font-size:14px}
   pre{white-space:pre-wrap;font-size:12px;margin:0}
+  body.hasdock{padding-bottom:110px}
+  #dock{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--bg);box-shadow:0 -2px 12px rgba(0,0,0,.15);text-align:center;z-index:5}
+  #dock .mut{font-size:12px}
+  #dock button{margin:6px auto 0;max-width:448px;display:block}
 </style>
 </head>
 <body>
 <h1>rPPG 量測雛形</h1>
-<p class="mut">請在明亮、均勻的光線下，臉對著前鏡頭，手機放穩，30 秒內不要說話或大幅移動。</p>
+<p class="mut" id="intro">請在明亮、均勻的光線下，臉對著前鏡頭，手機放穩，30 秒內不要說話或大幅移動。</p>
 <div class="box"><video id="v" playsinline muted></video><canvas id="ov"></canvas><div id="ovtxt" hidden></div></div>
 <button id="go">開始（會要求使用前鏡頭）</button>
 <div class="card">
@@ -58,11 +62,6 @@
     <div class="chips" id="sleepChips"><button data-v="good">不錯</button><button data-v="ok">普通</button><button data-v="bad">不太好</button></div>
   </div>
   <div class="mut" id="watchTip" style="margin-top:10px" hidden>想驗證準不準？量測時請戴著手錶，同時看手錶心率（這次是 30 秒平均，和手錶瞬間數字差幾下是正常的）。</div>
-</div>
-<div class="card" id="cta" hidden>
-  <b>接著，整理你的每日組合</b>
-  <p class="mut">回答幾個作息與飲食的問題（約 2 分鐘），我們會為你整理適合的每日保健食品。心率只是讓你認識自己，組合由你的問卷回答決定。</p>
-  <button id="ctaBtn">開始 2 分鐘問卷</button>
 </div>
 <div class="card" id="relax" hidden>
   <b>一分鐘放鬆挑戰</b>
@@ -86,6 +85,10 @@
   <button id="del" class="ghost">刪除我的所有資料</button>
 </div>
 <div class="card"><div class="mut">環境資訊（回報問題時請截圖）</div><pre id="env"></pre><pre id="env3"></pre><pre id="env2"></pre></div>
+<div id="dock" hidden>
+  <div class="mut">心率只是讓你認識自己，組合由問卷回答決定</div>
+  <button id="ctaBtn">下一步：2 分鐘問卷，整理你的每日組合 ›</button>
+</div>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
 // rPPG 訊號處理：POS 演算法（Wang et al., 2017, IEEE TBME）依論文公式自行實作，無第三方程式碼。
@@ -278,6 +281,7 @@ function series(from = 0) {
 
 let relaxMode = false, beforeRes = null;
 async function run() {
+  document.querySelector('.box').hidden = false; $('intro').hidden = false; $('dock').hidden = true; document.body.classList.remove('hasdock'); window.scrollTo(0, 0);
   $('go').disabled = true; $('csv').disabled = true; rows = []; lastResult = null; $('hr').textContent = '--'; $('hrunit').textContent = ''; $('cmp').textContent = ''; $('bat').hidden = true;
   try {
     stage('等待模型載入完成…'); overlay('準備中…'); await ready; stage('模型就緒，啟動鏡頭…'); overlay('啟動鏡頭…');
@@ -330,7 +334,10 @@ async function run() {
 // ===== 一分鐘放鬆挑戰（放鬆後的量測不儲存、不計入平常心率）=====
 function offerRelax(r) {
   $('relax').hidden = r.quality < QMIN;
-  $('cta').hidden = r.quality < QMIN || !cloud.on;
+  const ok = r.quality >= QMIN && cloud.on;
+  $('dock').hidden = !ok; document.body.classList.toggle('hasdock', ok);
+  // 量完把鏡頭畫面和說明收起來，結果直接頂到最上面
+  if (r.quality >= QMIN) { document.querySelector('.box').hidden = true; $('intro').hidden = true; window.scrollTo(0, 0); }
   $('relaxRes').textContent = ''; $('relaxBtn').hidden = false; $('relaxBtn').disabled = false; $('breath').textContent = '';
   beforeRes = r;
 }
@@ -346,6 +353,8 @@ $('relaxBtn').onclick = async () => {
   relaxMode = true; await run(); relaxMode = false;
 };
 function relaxDone(r) {
+  document.querySelector('.box').hidden = true; $('intro').hidden = true;
+  if (cloud.on) { $('dock').hidden = false; document.body.classList.add('hasdock'); }
   $('hr').textContent = Math.round(beforeRes.bpm); $('hrunit').textContent = '次／分'; $('q').textContent = '上方是放鬆前的結果';
   $('relaxBtn').hidden = true;
   if (r.quality < QMIN) { $('relaxRes').textContent = '放鬆後這次訊號不夠穩，沒辦法比較。可以再試一次。'; $('relaxBtn').hidden = false; $('relaxBtn').disabled = false; return; }
