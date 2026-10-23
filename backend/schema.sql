@@ -20,7 +20,8 @@ create table public.scans (
   quality numeric(4,3) not null check (quality between 0 and 1),
   valid_frames int,
   algo_version text not null,
-  device text
+  device text,
+  watch_bpm int check (watch_bpm between 30 and 220)
 );
 
 create index scans_user_time on public.scans (user_id, scanned_at desc);
@@ -33,3 +34,6 @@ alter table public.scans enable row level security;
 revoke all on public.users, public.consents, public.scans from anon, authenticated;
 grant all on public.users, public.consents, public.scans to service_role;
 grant usage, select on all sequences in schema public to service_role;
+
+-- 2026-10-23 新增：使用者自願填的手錶心率（驗證用）。已上線的資料庫請單獨執行下面這行：
+-- alter table public.scans add column if not exists watch_bpm int check (watch_bpm between 30 and 220);

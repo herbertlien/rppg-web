@@ -459,7 +459,7 @@ async function showPack(sub: string, replyToken: string) {
   return reply(replyToken, [{ type: "text", text: "你的組合整理中，確認後會在這裡通知你。" }]);
 }
 
-// 量心率完成後，使用者端會自動送出「我量好了」，這裡回覆最新一次的結果
+// 掃臉完成後，使用者端會自動送出「我量好了」，這裡回覆最新一次的結果
 async function onScanDone(sub: string, replyToken: string) {
   const uid = await findUser(sub, false);
   const rows = uid
@@ -469,7 +469,7 @@ async function onScanDone(sub: string, replyToken: string) {
   const last = rows?.data?.[0];
   const again = quick([{ label: "再量一次", uri: LIFF_URL }]);
   if (!last || Date.now() - new Date(last.scanned_at).getTime() > 15 * 60e3) {
-    return reply(replyToken, [{ type: "text", text: "還沒看到新的量測結果，請點下方選單的「量心率」。", quickReply: again }]);
+    return reply(replyToken, [{ type: "text", text: "還沒看到新的量測結果，請點下方選單的「今日電量」。", quickReply: again }]);
   }
   if (last.quality < 0.35) return reply(replyToken, [{ type: "text", text: "這次訊號不太穩，請在光線充足的地方再量一次。", quickReply: again }]);
   const base = (rows!.data as { bpm: number; quality: number; scanned_at: string }[]).slice(1)
@@ -602,7 +602,7 @@ async function setupMenus() {
   return done;
 }
 
-// 主選單（預設選單）：量心率、每日問卷、我的組合。沒有在作答的人都看這個
+// 主選單（預設選單）：今日電量、每日問卷、我的組合。沒有在作答的人都看這個
 async function setupHome(a: { key: string; x: number; y: number; w: number; h: number }[]) {
   if (!a) throw new Error("缺少主選單的圖");
   const act = (k: string) => k === "scan"

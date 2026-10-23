@@ -1,7 +1,7 @@
 // 產生 LINE 聊天室下方的選單圖：每個單選題一張 2500×1686 的 PNG，加上點選區域座標。
 // 執行：node engine/menugen.mjs（需要 playwright 與 Chromium）。輸出在 menus/，推上 GitHub Pages 後由後端建立選單。
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-const { chromium } = await import(process.env.PLAYWRIGHT || 'playwright');
+const pw = await import(process.env.PLAYWRIGHT || 'playwright'); const chromium = pw.chromium || pw.default.chromium;
 
 // 視覺基調集中在這裡，之後換品牌只改這一組
 const C = { bg: '#F6F1EA', card: '#FFFFFF', ink: '#1E2A24', mut: '#7A8780', ac: '#2F7D5B', acDark: '#1F5C42', soft: '#E4EDE7', track: '#E3DACB' };
@@ -78,7 +78,7 @@ h1 b{color:#2f7d5b}
 await page.screenshot({ path: new URL('intro.png', out).pathname });
 
 // 主選單：三步驟卡片，編號與箭頭表達先後順序
-const HW = 2500, HH = 843, hb = [['scan', '量心率', '30 秒，免費'], ['quiz', '每日問卷', '整理你的組合'], ['pack', '我的組合', '看目前狀態']];
+const HW = 2500, HH = 843, hb = [['scan', '今日電量', '30 秒掃臉看狀態'], ['quiz', '每日問卷', '整理你的組合'], ['pack', '我的組合', '看目前狀態']];
 const hg = 110, hw = Math.floor((HW - 60 * 2 - hg * 2) / 3);
 await page.setViewportSize({ width: HW, height: HH });
 await page.setContent(`<!doctype html><meta charset="utf-8"><style>

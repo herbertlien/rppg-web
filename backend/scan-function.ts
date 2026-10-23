@@ -92,6 +92,21 @@ Deno.serve(async (req) => {
       return reply({ ok: true });
     }
 
+    if (b.action === "watch") {
+      // 手錶數字（選填）：只更新 30 分鐘內最新的一筆量測，供驗證準確度
+      const w = Math.round(Number(b.watchBpm));
+      if (!(w >= 30 && w <= 220)) return reply({ error: "range" }, 400);
+      const last = await db.from("scans").select("id,scanned_at").eq("user_id", uid)
+        .order("scanned_at", { ascending: false }).limit(1);
+      if (last.error) throw last.error;
+      if (!last.data?.length || Date.now() - new Date(last.data[0].scanned_at).getTime() > 30 * 60_000) {
+        return reply({ error: "stale" }, 409);
+      }
+      const up = await db.from("scans").update({ watch_bpm: w }).eq("id", last.data[0].id);
+      if (up.error) throw up.error;
+      return reply({ ok: true });
+    }
+
     if (b.action === "list") {
       const r = await db.from("scans").select("scanned_at,bpm,quality")
         .eq("user_id", uid).order("scanned_at", { ascending: false }).limit(100);
