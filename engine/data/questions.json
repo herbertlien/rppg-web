@@ -1,0 +1,400 @@
+{
+  "_note": "問卷題目。safety＝安全題，一定要答，任何 reject 選項都會讓引擎拒絕產生配方。needs 是需求加分，flags 是個人禁用旗標。 reason 是理由句型，{label} 會換成客人選的選項，只描述客人自己的回答。",
+  "version": "questions-2026-10-22-draft",
+  "questions": [
+    {
+      "id": "age",
+      "safety": true,
+      "type": "single",
+      "text": "先確認一下，你的年齡是？",
+      "options": [
+        {
+          "value": "under18",
+          "label": "未滿 18 歲",
+          "reject": "under18"
+        },
+        {
+          "value": "18_29",
+          "label": "18–29 歲"
+        },
+        {
+          "value": "30_39",
+          "label": "30–39 歲"
+        },
+        {
+          "value": "40_49",
+          "label": "40–49 歲"
+        },
+        {
+          "value": "50plus",
+          "label": "50 歲以上"
+        }
+      ]
+    },
+    {
+      "id": "pregnancy",
+      "safety": true,
+      "type": "single",
+      "text": "你目前是否懷孕、哺乳中，或正在準備懷孕？",
+      "options": [
+        {
+          "value": "yes",
+          "label": "是",
+          "reject": "pregnancy"
+        },
+        {
+          "value": "no",
+          "label": "否／不適用"
+        }
+      ]
+    },
+    {
+      "id": "medication",
+      "safety": true,
+      "type": "single",
+      "text": "你目前有固定服用任何藥物嗎？包括處方藥、抗凝血藥或阿斯匹靈。",
+      "options": [
+        {
+          "value": "yes",
+          "label": "有",
+          "reject": "medication"
+        },
+        {
+          "value": "no",
+          "label": "沒有"
+        }
+      ]
+    },
+    {
+      "id": "conditions",
+      "safety": true,
+      "type": "multi",
+      "text": "以下有沒有符合你的情況？可以複選。",
+      "options": [
+        {
+          "value": "kidney",
+          "label": "慢性腎臟疾病",
+          "reject": "kidney"
+        },
+        {
+          "value": "liver",
+          "label": "慢性肝臟疾病",
+          "reject": "liver"
+        },
+        {
+          "value": "treatment",
+          "label": "其他正在看醫師治療中的疾病",
+          "reject": "treatment"
+        },
+        {
+          "value": "none",
+          "label": "都沒有",
+          "exclusive": true
+        }
+      ]
+    },
+    {
+      "id": "surgery",
+      "safety": true,
+      "type": "single",
+      "text": "接下來一個月內，有安排手術或拔牙嗎？",
+      "options": [
+        {
+          "value": "yes",
+          "label": "有",
+          "flags": [
+            "surgery_soon"
+          ]
+        },
+        {
+          "value": "no",
+          "label": "沒有"
+        }
+      ]
+    },
+    {
+      "id": "allergy",
+      "safety": true,
+      "type": "multi",
+      "text": "有沒有對以下食物過敏？可以複選。",
+      "options": [
+        {
+          "value": "fish",
+          "label": "魚類或海鮮",
+          "flags": [
+            "allergy_fish"
+          ]
+        },
+        {
+          "value": "soy",
+          "label": "大豆",
+          "flags": [
+            "allergy_soy"
+          ]
+        },
+        {
+          "value": "sesame",
+          "label": "芝麻",
+          "flags": [
+            "allergy_sesame"
+          ]
+        },
+        {
+          "value": "none",
+          "label": "都沒有",
+          "exclusive": true
+        }
+      ]
+    },
+    {
+      "id": "focus",
+      "type": "multi",
+      "max": 2,
+      "text": "最近最想照顧自己哪個部分？最多選兩個。",
+      "options": [
+        {
+          "value": "energy",
+          "label": "白天的精神",
+          "needs": {
+            "energy": 3
+          }
+        },
+        {
+          "value": "sleep",
+          "label": "睡眠",
+          "needs": {
+            "sleep": 3
+          }
+        },
+        {
+          "value": "stress",
+          "label": "壓力與緊繃感",
+          "needs": {
+            "stress": 3
+          }
+        },
+        {
+          "value": "digestion",
+          "label": "消化與排便",
+          "needs": {
+            "digestion": 3
+          }
+        },
+        {
+          "value": "skin",
+          "label": "肌膚狀態",
+          "needs": {
+            "skin": 3
+          }
+        },
+        {
+          "value": "seasonal",
+          "label": "換季時的保養",
+          "needs": {
+            "seasonal": 3
+          }
+        }
+      ],
+      "reason": "你想多照顧{label}"
+    },
+    {
+      "id": "sleep",
+      "type": "single",
+      "text": "這兩週睡得怎麼樣？",
+      "options": [
+        {
+          "value": "good",
+          "label": "大多睡得好"
+        },
+        {
+          "value": "so_so",
+          "label": "普通，偶爾難入睡",
+          "needs": {
+            "sleep": 1
+          }
+        },
+        {
+          "value": "poor",
+          "label": "常常睡不好或很淺",
+          "needs": {
+            "sleep": 2
+          }
+        }
+      ],
+      "reason": "你說這兩週{label}"
+    },
+    {
+      "id": "bedtime",
+      "type": "single",
+      "text": "平常大概幾點睡？",
+      "options": [
+        {
+          "value": "before_midnight",
+          "label": "12 點前"
+        },
+        {
+          "value": "midnight_1",
+          "label": "12 點到 1 點",
+          "needs": {
+            "late_nights": 1
+          }
+        },
+        {
+          "value": "after_1",
+          "label": "1 點以後",
+          "needs": {
+            "late_nights": 2
+          }
+        }
+      ],
+      "reason": "你通常 {label}才睡"
+    },
+    {
+      "id": "stress",
+      "type": "single",
+      "text": "最近工作或生活的壓力，0 到 10 分大概幾分？",
+      "options": [
+        {
+          "value": "low",
+          "label": "0–3 分"
+        },
+        {
+          "value": "mid",
+          "label": "4–6 分",
+          "needs": {
+            "stress": 1
+          }
+        },
+        {
+          "value": "high",
+          "label": "7–10 分",
+          "needs": {
+            "stress": 2
+          }
+        }
+      ],
+      "reason": "你的壓力自評 {label}"
+    },
+    {
+      "id": "meals_out",
+      "type": "single",
+      "text": "一週大概幾餐是外食或外送？",
+      "options": [
+        {
+          "value": "few",
+          "label": "5 餐以下"
+        },
+        {
+          "value": "some",
+          "label": "6–10 餐",
+          "needs": {
+            "eating_out": 1
+          }
+        },
+        {
+          "value": "most",
+          "label": "11 餐以上",
+          "needs": {
+            "eating_out": 2
+          }
+        }
+      ],
+      "reason": "你一週外食約 {label}"
+    },
+    {
+      "id": "veg",
+      "type": "single",
+      "text": "一天大概吃幾份蔬菜水果？（一份約一個拳頭大）",
+      "options": [
+        {
+          "value": "5plus",
+          "label": "5 份以上"
+        },
+        {
+          "value": "3_4",
+          "label": "3–4 份",
+          "needs": {
+            "low_veg": 1
+          }
+        },
+        {
+          "value": "0_2",
+          "label": "2 份以下",
+          "needs": {
+            "low_veg": 2
+          }
+        }
+      ],
+      "reason": "你一天蔬果約 {label}"
+    },
+    {
+      "id": "exercise",
+      "type": "single",
+      "text": "一週運動幾次（每次 30 分鐘以上）？",
+      "options": [
+        {
+          "value": "0",
+          "label": "幾乎沒有"
+        },
+        {
+          "value": "1_2",
+          "label": "1–2 次",
+          "needs": {
+            "exercise": 1
+          }
+        },
+        {
+          "value": "3plus",
+          "label": "3 次以上",
+          "needs": {
+            "exercise": 2
+          }
+        }
+      ],
+      "reason": "你一週運動 {label}"
+    },
+    {
+      "id": "screen",
+      "type": "single",
+      "text": "一天盯著螢幕大概幾小時？",
+      "options": [
+        {
+          "value": "lt6",
+          "label": "6 小時以下"
+        },
+        {
+          "value": "6_10",
+          "label": "6–10 小時",
+          "needs": {
+            "screen": 1
+          }
+        },
+        {
+          "value": "gt10",
+          "label": "10 小時以上",
+          "needs": {
+            "screen": 2
+          }
+        }
+      ],
+      "reason": "你一天看螢幕 {label}"
+    },
+    {
+      "id": "tier",
+      "type": "single",
+      "text": "最後，想要每天幾種？",
+      "options": [
+        {
+          "value": "basic",
+          "label": "基礎版，每天 3 種",
+          "tier": 3
+        },
+        {
+          "value": "advanced",
+          "label": "進階版，每天 5 種",
+          "tier": 5
+        }
+      ]
+    }
+  ]
+}

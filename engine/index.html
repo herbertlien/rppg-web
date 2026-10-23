@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Deerly 問卷預覽</title>
+<link rel="stylesheet" href="./chat.css">
+</head>
+<body>
+<h1>Deerly 問卷預覽</h1>
+<p class="mut">內部測試用。不會儲存任何資料，配方是暫定數字，結果只給 Herbert 審核看。</p>
+<div id="chat"></div>
+<div id="out"></div>
+
+<script type="module">
+import { buildPack, validateData } from './engine.js';
+import { el, makeChat } from './chat.js';
+
+const load = f => fetch(`./data/${f}.json`, { cache: 'no-store' }).then(r => r.json());
+const [items, limits, questions, claims] = await Promise.all(['items', 'limits', 'questions', 'claims'].map(load));
+const data = { items, limits, questions, claims };
+const $ = id => document.getElementById(id);
+
+const errs = validateData(data);
+if (errs.length) { $('out').append(el('pre', 'warn', '資料檔有問題：\n' + errs.join('\n'))); throw new Error('data'); }
+
+const { say, run } = makeChat($('chat'));
+say('bot', '嗨，我是下班鹿。接下來問你幾個關於作息和飲食的問題，大約三分鐘。');
+const { answers } = await run(questions, claims.rejectMessages);
+show(buildPack(answers, data));
+
+function show(r) {
+  const out = $('out');
+  if (r.status !== 'needs_review') {
+    out.append(el('div', 'card mut', `引擎結果：${r.status}（${(r.rejects || r.errors || []).join('、')}）`));
+    return;
+  }
+  say('bot', '謝謝你！我們會依你的回答整理一包，確認後在 LINE 通知你。');
+  const c = el('div', 'card');
+  c.append(el('b', '', `以下只有審核者看得到：待審配方（每天 ${r.tier} 種）`));
+  for (const it of r.items) {
+    const p = el('div');
+    p.append(el('div', '', `${it.name}，每天 ${it.dailyCapsules} 顆`), el('div', 'mut', `${it.reason}（分數 ${it.score}${it.status === 'confirmed' ? '' : '，暫定'}）`));
+    c.append(p);
+  }
+  const t = el('table');
+  for (const x of r.totals) {
+    const tr = el('tr');
+    tr.append(el('td', '', x.name), el('td', '', `${x.amount} ${x.unit || ''}${x.pct != null ? `（上限 ${x.pct}%）` : ''}`));
+    t.append(tr);
+  }
+  c.append(el('div', 'mut', '整包成分加總'), t);
+  for (const w of [...r.blockers, ...r.warnings]) c.append(el('div', 'warn', w));
+  if (r.skipped.length) c.append(el('div', 'mut', '跳過：' + r.skipped.map(s => `${s.name}（${s.why}）`).join('、')));
+  c.append(el('div', 'mut', `${r.engineVersion}，${r.dataVersion.items}`));
+  out.append(c);
+}
+</script>
+</body>
+</html>
