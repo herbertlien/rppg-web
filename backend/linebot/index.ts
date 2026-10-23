@@ -352,7 +352,7 @@ async function menuIds(): Promise<Record<string, string>> {
 }
 
 // 送出目前這一題：單選題換上選單圖，複選題用快速回覆
-async function askQuestion(sub: string, replyToken: string, s: Session, notice?: string) {
+async function askQuestion(sub: string, replyToken: string, s: Session, notice?: string, intro = false) {
   const q = QS.find((x) => x.id === s.cur)!;
   const n = QS.filter((x) => isShown(x, s.answers)).indexOf(q) + 1;
   const total = QS.filter((x) => isShown(x, s.answers)).length;
@@ -360,6 +360,7 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
   const back = s.history.length ? [{ label: "‹ 上一題", data: "back" }] : [];
   const messages: unknown[] = [];
   if (notice) messages.push({ type: "text", text: notice });
+  if (intro) messages.push({ type: "image", originalContentUrl: `${ASSET_BASE}intro.png`, previewImageUrl: `${ASSET_BASE}intro.png` });
   if (q.type === "single") {
     const ids = await menuIds();
     if (ids[q.id]) await line(`/v2/bot/user/${sub}/richmenu/${ids[q.id]}`);
@@ -394,7 +395,7 @@ async function startFlow(sub: string, replyToken: string) {
   const first = nextQuestion({}, null)!;
   const s: Session = { user_id: uid, answers: {}, cur: first.id, multi: [], history: [] };
   await saveSession(s);
-  await askQuestion(sub, replyToken, s, "好的，我們開始，大約兩分鐘。");
+  await askQuestion(sub, replyToken, s, "好的，我們開始，大約兩分鐘。", true);
 }
 
 async function finish(sub: string, replyToken: string, s: Session) {
