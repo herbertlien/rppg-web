@@ -127,7 +127,7 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
   const q = QS.find((x) => x.id === s.cur)!;
   const n = QS.filter((x) => isShown(x, s.answers)).indexOf(q) + 1;
   const total = QS.filter((x) => isShown(x, s.answers)).length;
-  const text = `（${n}/${total}）${q.text}${q.hint ? `\n${q.hint}` : ""}${q.type === "multi" ? `\n${q.max ? `最多選 ${q.max} 項，` : ""}可以複選，選好請按「完成」。` : ""}`;
+  const text = `（${n}/${total}）${q.text}${q.hint ? `\n${q.hint}` : ""}${q.type === "multi" ? `\n${q.max ? `最多選 ${q.max} 項，` : ""}可以複選。按鈕可以左右滑動，選好請按最左邊的「完成 ✔」。` : ""}`;
   const back = s.history.length ? [{ label: "‹ 上一題", data: "back" }] : [];
   const messages: unknown[] = [];
   if (notice) messages.push({ type: "text", text: notice });
@@ -135,13 +135,17 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
   if (q.type === "single") {
     const ids = await menuIds();
     if (ids[q.id]) await line(`/v2/bot/user/${sub}/richmenu/${ids[q.id]}`);
-    messages.push({ type: "text", text, ...(back.length ? { quickReply: quick(back) } : {}) });
+    // 上一題是複選（鍵盤模式）時，LINE 不會自動展開選單，提醒使用者點左下角的 ☰
+    const prev = QS.find((x) => x.id === s.history[s.history.length - 1]);
+    const tip = prev?.type === "multi" ? "\n請點輸入框左邊的「☰」展開選項。" : "";
+    messages.push({ type: "text", text: text + tip, ...(back.length ? { quickReply: quick(back) } : {}) });
   } else {
     await line(`/v2/bot/user/${sub}/richmenu`, "DELETE").catch(() => {});
     const sel = new Set(s.multi);
     const items = q.options.map((o) => ({ label: `${sel.has(o.value) ? "✓ " : ""}${o.chip ?? o.label}`, data: `m|${q.id}|${o.value}` }));
-    // LINE 快速回覆最多 13 個。選項太多時把「上一題」拿掉，改成輸入文字
-    let list = [...items, { label: "完成", data: `d|${q.id}` }, ...back];
+    // 「完成」放最左邊，不用滑到底才找得到。LINE 快速回覆最多 13 個，選項太多時把「上一題」拿掉，改成輸入文字
+    const done = { label: "完成 ✔", data: `d|${q.id}` };
+    let list = [done, ...items, ...back];
     let more = "";
     if (list.length > 13) {
       list = list.slice(0, items.length + 1);
