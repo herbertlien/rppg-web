@@ -123,7 +123,7 @@ async function menuIds(): Promise<Record<string, string>> {
 }
 
 // 送出目前這一題：單選題換上選單圖，複選題用快速回覆
-async function askQuestion(sub: string, replyToken: string, s: Session, notice?: string) {
+async function askQuestion(sub: string, replyToken: string, s: Session, notice?: string, intro = false) {
   const q = QS.find((x) => x.id === s.cur)!;
   const n = QS.filter((x) => isShown(x, s.answers)).indexOf(q) + 1;
   const total = QS.filter((x) => isShown(x, s.answers)).length;
@@ -131,6 +131,7 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
   const back = s.history.length ? [{ label: "‹ 上一題", data: "back" }] : [];
   const messages: unknown[] = [];
   if (notice) messages.push({ type: "text", text: notice });
+  if (intro) messages.push({ type: "image", originalContentUrl: `${ASSET_BASE}intro.png`, previewImageUrl: `${ASSET_BASE}intro.png` });
   if (q.type === "single") {
     const ids = await menuIds();
     if (ids[q.id]) await line(`/v2/bot/user/${sub}/richmenu/${ids[q.id]}`);
@@ -139,7 +140,14 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
     await line(`/v2/bot/user/${sub}/richmenu`, "DELETE").catch(() => {});
     const sel = new Set(s.multi);
     const items = q.options.map((o) => ({ label: `${sel.has(o.value) ? "✓ " : ""}${o.chip ?? o.label}`, data: `m|${q.id}|${o.value}` }));
-    messages.push({ type: "text", text, quickReply: quick([...items, { label: "完成", data: `d|${q.id}` }, ...back]) });
+    // LINE 快速回覆最多 13 個。選項太多時把「上一題」拿掉，改成輸入文字
+    let list = [...items, { label: "完成", data: `d|${q.id}` }, ...back];
+    let more = "";
+    if (list.length > 13) {
+      list = list.slice(0, items.length + 1);
+      if (back.length) more = "\n要回上一題請輸入「上一題」。";
+    }
+    messages.push({ type: "text", text: text + more, quickReply: quick(list) });
   }
   await reply(replyToken, messages);
 }
@@ -158,7 +166,7 @@ async function startFlow(sub: string, replyToken: string) {
   const first = nextQuestion({}, null)!;
   const s: Session = { user_id: uid, answers: {}, cur: first.id, multi: [], history: [] };
   await saveSession(s);
-  await askQuestion(sub, replyToken, s, "好的，我們開始，大約兩分鐘。");
+  await askQuestion(sub, replyToken, s, "好的，我們開始，大約兩分鐘。", true);
 }
 
 async function finish(sub: string, replyToken: string, s: Session) {
@@ -258,6 +266,7 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 
 async function onText(sub: string, replyToken: string, text: string) {
   if (/^(開始問卷|開始|問卷)$/.test(text.trim())) return startFlow(sub, replyToken);
+  if (text.trim() === "上一題") return onPostback(sub, replyToken, "back");
   const uid = await findUser(sub, false);
   const s = uid ? await loadSession(uid) : null;
   if (s?.cur) return askQuestion(sub, replyToken, s, "請用下方的按鈕作答。");

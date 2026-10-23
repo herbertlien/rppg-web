@@ -49,6 +49,21 @@ for (const q of single) {
   await page.screenshot({ path: new URL(`${q.id}.png`, out).pathname });
   areas[q.id] = q.options.map((o, i) => ({ value: o.value, ...boxes[i] }));
 }
+// 開始問卷時送出的操作說明圖：告訴使用者答案在下方選單，不用打字
+await page.setViewportSize({ width: 1040, height: 1040 });
+await page.setContent(`<!doctype html><meta charset="utf-8"><style>
+body{margin:0;width:1040px;height:1040px;background:#f4efe8;font-family:"Noto Sans TC","PingFang TC","WenQuanYi Zen Hei",sans-serif;position:relative;overflow:hidden;color:#222}
+h1{position:absolute;left:60px;right:60px;top:50px;margin:0;font-size:66px;line-height:1.3}
+h1 b{color:#2f7d5b}
+.chat{position:absolute;left:60px;top:260px;width:620px;background:#fff;border-radius:40px;padding:34px 40px;font-size:46px;line-height:1.4;box-shadow:0 4px 0 #ddd}
+.bar{position:absolute;left:0;right:0;bottom:0;height:230px;background:#2f7d5b;display:flex;align-items:center;justify-content:center;color:#fff;font-size:70px;font-weight:700;letter-spacing:4px}
+.arr{position:absolute;left:0;right:0;bottom:250px;text-align:center;font-size:130px;color:#2f7d5b;line-height:1}
+.tip{position:absolute;left:60px;right:60px;bottom:420px;text-align:center;font-size:56px;font-weight:700;color:#2f7d5b}
+</style><h1>答案在<b>下方選單</b>，<br>點一下就好，不用打字</h1>
+<div class="chat">（1/19）先確認一下，你的年齡是？</div>
+<div class="tip">看到這個就點它 ↓</div><div class="arr">▼</div>
+<div class="bar">點這裡作答 ▴</div>`);
+await page.screenshot({ path: new URL('intro.png', out).pathname });
 await browser.close();
 writeFileSync(new URL('areas.json', out), JSON.stringify({ version: data.version, areas }, null, 2));
 console.log('產生', single.length, '張，題目版本', data.version);
