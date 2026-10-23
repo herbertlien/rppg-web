@@ -1,6 +1,6 @@
 {
   "_note": "問卷題目。safety＝安全題，一定要答。reject＝不接單；flags＝個人禁用旗標；warn＝給審核者的提醒；needs＝需求加分；showIf＝只在前面某題選了指定選項時才問；reason＝理由句型，{label} 換成選項文字（選項上也可直接寫整句）；short＝送出前總覽用的短標題；why＝這題存在的理由（只給內部看）。",
-  "version": "questions-2026-10-23b",
+  "version": "questions-2026-10-23c",
   "questions": [
     {
       "id": "age",
@@ -36,8 +36,16 @@
           "label": "40–49 歲"
         },
         {
-          "value": "50plus",
-          "label": "50 歲以上"
+          "value": "50_59",
+          "label": "50–59 歲"
+        },
+        {
+          "value": "60_69",
+          "label": "60–69 歲"
+        },
+        {
+          "value": "70plus",
+          "label": "70 歲以上"
         }
       ]
     },

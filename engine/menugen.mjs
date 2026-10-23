@@ -6,37 +6,48 @@ const pw = await import(process.env.PLAYWRIGHT || 'playwright'); const chromium 
 // 視覺基調集中在這裡，之後換品牌只改這一組
 const C = { bg: '#F6F1EA', card: '#FFFFFF', ink: '#1E2A24', mut: '#7A8780', ac: '#2F7D5B', acDark: '#1F5C42', soft: '#E4EDE7', track: '#E3DACB' };
 const FONT = '"Noto Sans TC","PingFang TC","WenQuanYi Zen Hei",sans-serif';
-const W = 2500, H = 1686, HEAD = 520, PAD = 80, GAP = 48;
+const W = 2500, H = 1686, HEAD = 520, HEAD_MULTI = 420, PAD = 80, GAP = 48;
 const data = JSON.parse(readFileSync(new URL('./data/questions.json', import.meta.url), 'utf8'));
 const out = new URL('../menus/', import.meta.url);
 mkdirSync(out, { recursive: true });
 
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-// 選項排版：3 個以內單欄，4 個以上雙欄
-function layout(n) {
-  const cols = n <= 3 ? 1 : 2, rows = Math.ceil(n / cols);
+const DONE_H = 170;
+// 選項排版：3 個以內單欄，4–8 個雙欄，9 個以上三欄；複選題底部多一條「完成」
+function layout(n, multi = false) {
+  const HEAD_ = multi ? HEAD_MULTI : HEAD;
+  const cols = n <= 3 ? 1 : n <= 8 ? 2 : 3, rows = Math.ceil(n / cols);
+  const bottom = multi ? DONE_H + GAP : 0;
   const bw = (W - PAD * 2 - GAP * (cols - 1)) / cols;
-  const bh = (H - HEAD - PAD - GAP * (rows - 1)) / rows;
+  const bh = (H - HEAD_ - PAD - bottom - GAP * (rows - 1)) / rows;
   return Array.from({ length: n }, (_, i) => ({
     x: Math.round(PAD + (i % cols) * (bw + GAP)),
-    y: Math.round(HEAD + Math.floor(i / cols) * (bh + GAP)),
+    y: Math.round(HEAD_ + Math.floor(i / cols) * (bh + GAP)),
     w: Math.round(bw), h: Math.round(bh),
   }));
 }
 
-// 手機上 2500 px 寬的圖約縮成 390 pt，字級 150 px 約等於 23 pt。選項字盡量大，長的才縮
-function optionFont(q, boxes) {
-  const n = q.options.length, longest = Math.max(...q.options.map(o => (o.chip || o.label).length));
-  const base = n <= 3 ? 190 : n <= 4 ? 170 : 150;
-  return Math.max(84, Math.min(base, Math.floor((boxes[0].w - 220) / (longest * 1.04))));
+// 估算字寬：中文約 1 個字級寬，英數與符號約 0.6
+const wlen = t => [...t].reduce((a, c) => a + (c.charCodeAt(0) > 255 ? 1 : 0.6), 0);
+// 手機上 2500 px 寬的圖約縮成 390 pt，字級 150 px 約等於 23 pt。選項字盡量大；一行放不下就允許折成兩行，不要縮到看不清楚
+function optionFont(q, boxes, side) {
+  const n = q.options.length, longest = Math.max(...q.options.map(o => wlen(o.chip || o.label)));
+  const base = n <= 3 ? 190 : n <= 4 ? 170 : n <= 8 ? 150 : 110;
+  const room = boxes[0].w - side, h = boxes[0].h;
+  const fs1 = Math.min(base, Math.floor(room / (longest * 1.04)));
+  const fs2 = Math.min(base, Math.floor(room / (Math.ceil(longest / 2) * 1.04)), Math.floor((h - 50) / 2.6));
+  return fs2 > fs1 * 1.15 ? { fs: fs2, lines: 2 } : { fs: Math.max(72, fs1), lines: 1 };
 }
 
 function html(q, boxes, idx, total) {
+  const multi = q.type === 'multi';
   const lab = o => o.chip || o.label;
-  const fs = optionFont(q, boxes);
+  const side = multi ? 120 : 220;
+  const { fs } = optionFont(q, boxes, side);
   const qfs = q.text.length <= 12 ? 150 : q.text.length <= 16 ? 130 : q.text.length <= 20 ? 108 : 92;
-  const btn = (o, b) => `<div class="b" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px"><span style="font-size:${fs}px">${esc(lab(o))}</span><i style="font-size:${Math.round(fs * 0.9)}px">›</i></div>`;
+  const btn = (o, b) => `<div class="b" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px"><span style="font-size:${fs}px">${esc(lab(o))}</span>${multi ? '' : `<i style="font-size:${Math.round(fs * 0.9)}px">›</i>`}</div>`;
+  const done = multi ? `<div class="done" style="left:${PAD}px;top:${H - PAD - DONE_H}px;width:${W - PAD * 2}px;height:${DONE_H}px">選好了，按這裡完成 ✔</div>` : '';
   return `<!doctype html><meta charset="utf-8"><style>
   body{margin:0;width:${W}px;height:${H}px;background:${C.bg};font-family:${FONT};position:relative;overflow:hidden}
   .brand{position:absolute;left:${PAD}px;top:44px;font-size:68px;color:${C.ac};font-weight:700;letter-spacing:6px}
@@ -44,22 +55,24 @@ function html(q, boxes, idx, total) {
   .bar{position:absolute;left:${PAD}px;right:${PAD}px;top:150px;height:22px;border-radius:11px;background:${C.track}}
   .bar div{height:100%;border-radius:11px;background:${C.ac};width:${Math.round(idx / total * 100)}%}
   .q{position:absolute;left:${PAD}px;right:${PAD}px;top:215px;font-size:${qfs}px;font-weight:900;color:${C.ink};line-height:1.2}
-  .b{position:absolute;box-sizing:border-box;background:${C.card};border:8px solid ${C.ac};border-radius:72px;box-shadow:0 14px 0 ${C.soft};display:flex;align-items:center;justify-content:center;text-align:center;padding:0 130px 0 60px;color:${C.acDark};font-weight:700;line-height:1.25}
+  .b{position:absolute;box-sizing:border-box;background:${C.card};border:8px solid ${C.ac};border-radius:${multi ? 56 : 72}px;box-shadow:0 14px 0 ${C.soft};display:flex;align-items:center;justify-content:center;text-align:center;padding:0 ${multi ? 36 : 130}px 0 ${multi ? 36 : 60}px;color:${C.acDark};font-weight:700;line-height:1.25}
   .b i{position:absolute;right:56px;font-style:normal;color:${C.ac};font-weight:400}
+  .done{position:absolute;box-sizing:border-box;background:${C.ac};border-radius:72px;box-shadow:0 14px 0 ${C.acDark};display:flex;align-items:center;justify-content:center;color:#fff;font-size:100px;font-weight:800;letter-spacing:4px}
   </style><div class="brand">Deerly</div><div class="n">${idx} / ${total}</div><div class="bar"><div></div></div><div class="q">${esc(q.text)}</div>
-  ${q.options.map((o, i) => btn(o, boxes[i])).join('')}`;
+  ${q.options.map((o, i) => btn(o, boxes[i])).join('')}${done}`;
 }
 
-const single = data.questions.filter(q => q.type === 'single');
 const total = data.questions.length;
 const areas = {};
 const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
-for (const q of single) {
-  const boxes = layout(q.options.length);
+for (const q of data.questions) {
+  const multi = q.type === 'multi';
+  const boxes = layout(q.options.length, multi);
   await page.setContent(html(q, boxes, data.questions.indexOf(q) + 1, total));
   await page.screenshot({ path: new URL(`${q.id}.png`, out).pathname });
   areas[q.id] = q.options.map((o, i) => ({ value: o.value, ...boxes[i] }));
+  if (multi) areas[q.id].push({ value: '__done', x: PAD, y: H - PAD - DONE_H, w: W - PAD * 2, h: DONE_H });
 }
 // 開始問卷時送出的操作說明圖：告訴使用者答案在下方選單，不用打字
 await page.setViewportSize({ width: 1040, height: 1040 });
@@ -84,8 +97,8 @@ await page.setViewportSize({ width: HW, height: HH });
 await page.setContent(`<!doctype html><meta charset="utf-8"><style>
 body{margin:0;width:${HW}px;height:${HH}px;background:${C.bg};font-family:${FONT};position:relative;overflow:hidden}
 .b{position:absolute;top:50px;height:${HH - 100}px;width:${hw}px;box-sizing:border-box;background:${C.card};border:8px solid ${C.ac};border-radius:72px;box-shadow:0 14px 0 ${C.soft};display:flex;flex-direction:column;align-items:center;justify-content:center;color:${C.acDark}}
-.b .no{width:110px;height:110px;border-radius:55px;background:${C.ac};color:#fff;font-size:70px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:22px}
-.b b{font-size:140px;font-weight:800;line-height:1.1}.b i{font-style:normal;font-size:70px;color:${C.mut};margin-top:14px;font-weight:600}
+.b .no{width:190px;height:190px;border-radius:95px;background:${C.ac};color:#fff;font-size:130px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:26px}
+.b b{font-size:140px;font-weight:800;line-height:1.1}.b i{font-style:normal;font-size:78px;color:${C.mut};margin-top:14px;font-weight:600}
 .ar{position:absolute;top:${HH / 2 - 70}px;width:${hg}px;text-align:center;font-size:120px;color:${C.ac};line-height:1}
 </style>` + hb.map((h, i) => `<div class="b" style="left:${60 + i * (hw + hg)}px"><div class="no">${i + 1}</div><b>${h[1]}</b><i>${h[2]}</i></div>`).join('') +
   [0, 1].map(i => `<div class="ar" style="left:${60 + (i + 1) * hw + i * hg}px">›</div>`).join(''));
@@ -93,4 +106,4 @@ await page.screenshot({ path: new URL('home.png', out).pathname });
 areas.home = hb.map((h, i) => ({ key: h[0], x: i === 0 ? 0 : 60 + i * (hw + hg) - hg / 2, y: 0, w: i === 0 ? 60 + hw + hg / 2 : i === 2 ? HW - (60 + i * (hw + hg) - hg / 2) : hw + hg, h: HH }));
 writeFileSync(new URL('areas.json', out), JSON.stringify({ version: data.version, areas }, null, 2));
 await browser.close();
-console.log('產生', single.length, '張，題目版本', data.version);
+console.log('產生', data.questions.length, '張，題目版本', data.version);
