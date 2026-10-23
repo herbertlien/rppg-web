@@ -10,7 +10,7 @@ const data = { items: load('items'), limits: load('limits'), questions: load('qu
 // 一位典型的科技業上班族
 const base = {
   age: '30_34', sex: 'female', pregnancy: 'no', medication: 'no', conditions: ['none'], allergy: ['none'],
-  diet: 'omni', supplements: ['none'], focus: ['sleep', 'stress'], sleep_hours: 'lt6', sleep_quality: 'poor',
+  diet: 'omni', supplements: ['none'], spend: '0', focus: ['sleep', 'stress'], sleep_hours: 'lt6', sleep_quality: 'poor',
   stress: 'high', caffeine: '3plus', alcohol: 'rare', meals_out: 'most', veg: '0_1', bowel: 'regular',
   exercise: '0', tier: 'basic',
 };
@@ -176,4 +176,13 @@ test('顯示條件必須引用前面的題目', () => {
   const questions = structuredClone(data.questions);
   questions.questions[0].showIf = { tier: ['basic'] };
   assert.ok(validateData({ ...data, questions }).length > 0);
+});
+
+test('口服避孕藥目前不接單，且訊息有寫；經期與頭髮需求會選到對應品項', () => {
+  const r = buildPack({ ...base, medication: 'contraceptive' }, data);
+  assert.equal(r.status, 'rejected');
+  assert.ok(data.claims.rejectMessages.contraceptive);
+  const p = buildPack({ ...base, focus: ['period', 'hair'], sleep_hours: '7plus', sleep_quality: 'good', stress: 'low', caffeine: '0_1', meals_out: 'few', veg: '3', tier: 'advanced' }, data);
+  const ids = p.items.map(i => i.id);
+  assert.ok(ids.includes('magnesium') && ids.includes('collagen'), ids.join());
 });

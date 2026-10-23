@@ -99,7 +99,7 @@ export function runSurvey(root, questions, rejectMessages, { intro, submitLabel 
       paint();
 
       const ask = el('div', 'ask');
-      ask.append(el('div', 'who', '下班鹿'), el('div', 'qtext', q.text));
+      ask.append(el('div', 'who', 'Deerly'), el('div', 'qtext', q.text));
       // 單選題不需要按鈕；從總覽進來時保留「回總覽」
       screen([header(i), ask, opts], multi || reviewing ? bottom : null);
     }
@@ -108,7 +108,7 @@ export function runSurvey(root, questions, rejectMessages, { intro, submitLabel 
       const back = el('button', 'go ghost', '我選錯了，回上一題');
       back.onclick = () => show(i);
       const box = el('div', 'ask');
-      box.append(el('div', 'who', '下班鹿'), el('div', 'qtext', rejectMessages[code]));
+      box.append(el('div', 'who', 'Deerly'), el('div', 'qtext', rejectMessages[code]));
       const dock = el('div', 'dock');
       dock.append(back);
       screen([box], dock);
@@ -133,7 +133,7 @@ export function runSurvey(root, questions, rejectMessages, { intro, submitLabel 
       const dock = el('div', 'dock');
       dock.append(go);
       const ask = el('div', 'ask');
-      ask.append(el('div', 'who', '下班鹿'), el('div', 'qtext', '確認一下你的回答，點任何一行可以修改。'));
+      ask.append(el('div', 'who', 'Deerly'), el('div', 'qtext', '確認一下你的回答，點任何一行可以修改。'));
       screen([ask, list], dock);
     }
 
@@ -141,7 +141,7 @@ export function runSurvey(root, questions, rejectMessages, { intro, submitLabel 
       const start = el('button', 'go', '開始');
       start.onclick = () => show(nextIndex(-1));
       const box = el('div', 'ask');
-      box.append(el('div', 'who', '下班鹿'), el('div', 'qtext', intro));
+      box.append(el('div', 'who', 'Deerly'), el('div', 'qtext', intro));
       const dock = el('div', 'dock');
       dock.append(start);
       screen([box], dock);

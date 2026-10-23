@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Deerly 生活習慣問卷</title>
-<link rel="stylesheet" href="../engine/style.css?v=202610230733">
+<link rel="stylesheet" href="../engine/style.css?v=202610230812">
 </head>
 <body>
 <h1 id="title">Deerly 生活習慣問卷</h1>
@@ -32,7 +32,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
 // 版本檢查：LINE 會快取舊網頁，發現有新版就帶版本號重新載入一次
-const V = '202610230733';
+const V = '202610230812';
 {
   const u = new URL(location.href);
   try {
@@ -121,9 +121,9 @@ async function start() {
   homeVisible(false);
   // 有量過心率就接著上次的結果打招呼；配方只由問卷回答決定，心率不參與
   const last = (await recentScans()).find(s => s.quality >= 0.35);
-  const hello = last ? `嗨，我是下班鹿。你最近一次量到的心率是 ${Math.round(last.bpm)}（${new Date(last.scanned_at).toLocaleDateString('zh-TW')}）。` : '嗨，我是下班鹿。';
+  const hello = last ? `嗨，歡迎回來。你最近一次量到的心率是 ${Math.round(last.bpm)}（${new Date(last.scanned_at).toLocaleDateString('zh-TW')}）。` : '嗨，歡迎來到 Deerly。';
   const answers = await runSurvey($('chat'), questions, claims.rejectMessages, {
-    intro: hello + '接下來問你幾個關於作息和飲食的問題，大約兩分鐘，我們會整理出適合你的每日組合。',
+    intro: hello + '接下來用幾個簡單的問題了解你的日常，大約兩分鐘。我們會依你的回答，整理適合你的每日組合。',
   });
   $('chat').replaceChildren();
   homeVisible(true);
