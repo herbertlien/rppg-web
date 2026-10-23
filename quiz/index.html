@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Deerly 生活習慣問卷</title>
-<link rel="stylesheet" href="../engine/chat.css">
+<link rel="stylesheet" href="../engine/style.css">
 </head>
 <body>
-<h1>Deerly 生活習慣問卷</h1>
+<h1 id="title">Deerly 生活習慣問卷</h1>
 <p id="status" class="mut">載入中…</p>
 
 <div id="consent" class="card" hidden>
   <b>開始前請先看一下</b>
   <p class="mut">（草稿，正式對外前會請專業人士審閱）</p>
-  <p>接下來會問你年齡、是否懷孕或用藥、作息、飲食與運動習慣，用來整理適合你的每日保健食品組合。</p>
+  <p>接下來會問你年齡、是否懷孕或用藥、過敏、目前吃的保健食品，以及作息、飲食與運動習慣，用來整理適合你的每日保健食品組合。</p>
   <ul class="mut">
     <li>你的回答會存在我們的資料庫，只有 Deerly 負責審核配方的人看得到，不會提供給第三方。</li>
     <li>如果依你的回答我們不適合提供服務，這次的回答不會被保存。</li>
@@ -30,7 +30,7 @@
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
-import { el, makeChat } from '../engine/chat.js';
+import { el, runSurvey } from '../engine/survey.js';
 import { login, call } from '../engine/api.js';
 
 const $ = id => document.getElementById(id);
@@ -82,14 +82,12 @@ $('agree').onclick = async () => {
   const r = await call('consent');
   if (r.status !== 200) { $('agree').disabled = false; return status('同意未送出（' + r.status + '），請再試一次。'); }
   $('consent').hidden = true;
-  $('del').hidden = false;
   start();
 };
 
 $('redo').onclick = () => {
   $('done').hidden = true;
   $('redo').hidden = true;
-  $('chat').replaceChildren();
   start();
 };
 
@@ -102,26 +100,37 @@ $('del').onclick = async () => {
   status('已刪除你的所有資料。');
 };
 
+// 問卷進行中只顯示題目；送出後回到首頁區塊顯示結果
+function homeVisible(on) {
+  $('title').hidden = !on;
+  $('del').hidden = !on;
+}
+
 async function start() {
   status('');
-  const { say, run } = makeChat($('chat'));
-  say('bot', '嗨，我是下班鹿。接下來問你幾個關於作息和飲食的問題，大約三分鐘。');
-  const { answers, reject } = await run(questions, claims.rejectMessages);
-  if (reject) return;  // 不接單：不送出、不保存
-  const wait = say('bot', '收到，整理中…');
+  homeVisible(false);
+  const answers = await runSurvey($('chat'), questions, claims.rejectMessages, {
+    intro: '嗨，我是下班鹿。接下來問你幾個關於作息和飲食的問題，大約兩分鐘。',
+  });
+  $('chat').replaceChildren();
+  homeVisible(true);
+  status('送出中…');
   const r = await call('submit', { answers });
-  wait.remove();
+  status('');
+  const d = $('done');
+  d.hidden = false;
   if (r.status === 200 && r.body.status === 'received') {
-    say('bot', '謝謝你！我們會依你的回答整理一包，確認後在 LINE 通知你。');
+    d.replaceChildren(el('div', '', '謝謝你！我們會依你的回答整理一包，確認後在 LINE 通知你。'));
   } else if (r.status === 200 && r.body.status === 'rejected') {
-    for (const m of r.body.messages) say('bot', m);
+    d.replaceChildren(...r.body.messages.map(m => el('div', '', m)));
   } else if (r.status === 429) {
-    say('bot', '剛剛已經送出過了，請稍等半分鐘再試。');
+    d.replaceChildren(el('div', '', '剛剛已經送出過了，請稍等半分鐘再試。'));
   } else if (r.status === 401) {
-    say('bot', '登入已過期，請關閉後重新開啟再填一次。');
+    d.replaceChildren(el('div', '', '登入已過期，請關閉後重新開啟再填一次。'));
   } else {
-    say('bot', '送出失敗（' + r.status + '），請稍後再試。');
+    d.replaceChildren(el('div', '', '送出失敗（' + r.status + '），請稍後再試。'));
   }
+  $('redo').hidden = false;
 }
 </script>
 </body>

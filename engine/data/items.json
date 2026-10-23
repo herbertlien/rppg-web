@@ -1,101 +1,352 @@
 {
   "_note": "品項資料。status：confirmed＝成分與每日顆數都由南都確認；formula_only＝有每顆成分、每日顆數未確認；placeholder＝成分與顆數都是暫定數字。只要配方含非 confirmed 品項，就不能出貨。",
-  "version": "items-2026-10-22-draft",
+  "version": "items-2026-10-23-draft",
   "pharmacistApproved": false,
   "groups": {
-    "b_complex":    { "name": "B 群類", "max": 1 },
-    "opc":          { "name": "葡萄籽／前花青素", "max": 1 },
-    "bleeding_risk": { "name": "可能增加出血風險類", "max": 1 }
+    "b_complex": {
+      "name": "B 群類",
+      "max": 1
+    },
+    "opc": {
+      "name": "葡萄籽／前花青素",
+      "max": 1
+    },
+    "bleeding_risk": {
+      "name": "可能增加出血風險類",
+      "max": 1
+    }
   },
   "items": [
     {
-      "id": "b_complex_e", "name": "維生素 B 群 + E", "enabled": true, "status": "formula_only",
-      "source": "南都配方表 2026-08-26", "groups": ["b_complex"],
+      "id": "b_complex_e",
+      "name": "維生素 B 群 + E",
+      "enabled": true,
+      "status": "formula_only",
+      "source": "南都配方表 2026-08-26",
+      "groups": [
+        "b_complex"
+      ],
       "dailyCapsules": 1,
-      "perCapsule": { "vitamin_b1": 48, "pantothenic_acid": 50, "vitamin_b6": 30, "vitamin_b12": 500, "vitamin_e": 20.4, "gamma_oryzanol": 35 },
-      "needs": { "energy": 3, "stress": 2, "eating_out": 2 },
+      "perCapsule": {
+        "vitamin_b1": 48,
+        "pantothenic_acid": 50,
+        "vitamin_b6": 30,
+        "vitamin_b12": 500,
+        "vitamin_e": 20.4,
+        "gamma_oryzanol": 35
+      },
+      "needs": {
+        "energy": 3,
+        "stress": 2,
+        "eating_out": 2,
+        "drinking": 1
+      },
+      "excludeIf": [
+        "taking_b",
+        "taking_multivitamin"
+      ]
+    },
+    {
+      "id": "b_complex",
+      "name": "維生素 B 群（綜合型）",
+      "enabled": false,
+      "disabledReason": "含鐵、維生素 A、當歸與色素，和其他品項重疊多；驗證期改用 B 群 + E",
+      "status": "formula_only",
+      "source": "南都配方表 2026-08-26",
+      "groups": [
+        "b_complex"
+      ],
+      "dailyCapsules": 1,
+      "perCapsule": {
+        "vitamin_b1": 50,
+        "vitamin_b2": 50,
+        "vitamin_b6": 50,
+        "pantothenic_acid": 50,
+        "niacinamide": 30,
+        "vitamin_b12": 400,
+        "folate": 400,
+        "vitamin_c": 100,
+        "vitamin_e": 30,
+        "vitamin_a": 5000,
+        "vitamin_d": 2.5,
+        "iron": 7.5,
+        "zinc": 10,
+        "magnesium": 12.5,
+        "calcium": 74
+      },
+      "needs": {
+        "energy": 3,
+        "eating_out": 3
+      },
       "excludeIf": []
     },
     {
-      "id": "b_complex", "name": "維生素 B 群（綜合型）", "enabled": false, "disabledReason": "含鐵、維生素 A、當歸與色素，和其他品項重疊多；驗證期改用 B 群 + E",
-      "status": "formula_only", "source": "南都配方表 2026-08-26", "groups": ["b_complex"],
+      "id": "vitamin_b6",
+      "name": "維生素 B6",
+      "enabled": false,
+      "disabledReason": "與 B 群疊加容易超過 B6 上限",
+      "status": "formula_only",
+      "source": "南都配方表 2026-08-26",
+      "groups": [
+        "b_complex"
+      ],
       "dailyCapsules": 1,
-      "perCapsule": { "vitamin_b1": 50, "vitamin_b2": 50, "vitamin_b6": 50, "pantothenic_acid": 50, "niacinamide": 30, "vitamin_b12": 400, "folate": 400, "vitamin_c": 100, "vitamin_e": 30, "vitamin_a": 5000, "vitamin_d": 2.5, "iron": 7.5, "zinc": 10, "magnesium": 12.5, "calcium": 74 },
-      "needs": { "energy": 3, "eating_out": 3 },
+      "perCapsule": {
+        "vitamin_b6": 30,
+        "calcium": 108
+      },
+      "needs": {
+        "energy": 1
+      },
       "excludeIf": []
     },
     {
-      "id": "vitamin_b6", "name": "維生素 B6", "enabled": false, "disabledReason": "與 B 群疊加容易超過 B6 上限",
-      "status": "formula_only", "source": "南都配方表 2026-08-26", "groups": ["b_complex"],
+      "id": "magnesium",
+      "name": "鎂",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定",
       "dailyCapsules": 1,
-      "perCapsule": { "vitamin_b6": 30, "calcium": 108 },
-      "needs": { "energy": 1 },
+      "perCapsule": {
+        "magnesium": 100
+      },
+      "needs": {
+        "sleep": 3,
+        "stress": 2,
+        "exercise": 2,
+        "caffeine": 1
+      },
       "excludeIf": []
     },
     {
-      "id": "magnesium", "name": "鎂", "enabled": true, "status": "placeholder", "source": "暫定",
-      "dailyCapsules": 1, "perCapsule": { "magnesium": 100 },
-      "needs": { "sleep": 3, "stress": 2, "exercise": 2 }, "excludeIf": []
+      "id": "vitamin_c",
+      "name": "維生素 C",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定",
+      "dailyCapsules": 1,
+      "perCapsule": {
+        "vitamin_c": 250
+      },
+      "needs": {
+        "low_veg": 3,
+        "eating_out": 1,
+        "seasonal": 2,
+        "skin": 1
+      },
+      "excludeIf": [
+        "taking_c"
+      ]
     },
     {
-      "id": "vitamin_c", "name": "維生素 C", "enabled": true, "status": "placeholder", "source": "暫定",
-      "dailyCapsules": 1, "perCapsule": { "vitamin_c": 250 },
-      "needs": { "low_veg": 3, "eating_out": 2, "seasonal": 2 }, "excludeIf": []
+      "id": "zinc",
+      "name": "鋅",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定",
+      "dailyCapsules": 1,
+      "perCapsule": {
+        "zinc": 10
+      },
+      "needs": {
+        "low_veg": 1,
+        "exercise": 1,
+        "seasonal": 2,
+        "skin": 1
+      },
+      "excludeIf": []
     },
     {
-      "id": "zinc", "name": "鋅", "enabled": true, "status": "placeholder", "source": "暫定",
-      "dailyCapsules": 1, "perCapsule": { "zinc": 10 },
-      "needs": { "low_veg": 2, "exercise": 1, "seasonal": 1, "skin": 1 }, "excludeIf": []
+      "id": "rhodiola",
+      "name": "紅景天",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定",
+      "dailyCapsules": 1,
+      "perCapsule": {
+        "rhodiola_extract": 200
+      },
+      "needs": {
+        "stress": 3,
+        "energy": 2
+      },
+      "excludeIf": []
     },
     {
-      "id": "rhodiola", "name": "紅景天", "enabled": true, "status": "placeholder", "source": "暫定",
-      "dailyCapsules": 1, "perCapsule": { "rhodiola_extract": 200 },
-      "needs": { "stress": 3, "energy": 2 }, "excludeIf": []
+      "id": "sesamin",
+      "name": "芝麻素",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定",
+      "dailyCapsules": 1,
+      "perCapsule": {
+        "sesamin": 10
+      },
+      "needs": {
+        "late_nights": 3,
+        "drinking": 3,
+        "sleep": 1
+      },
+      "excludeIf": [
+        "allergy_sesame"
+      ]
     },
     {
-      "id": "sesamin", "name": "芝麻素", "enabled": true, "status": "placeholder", "source": "暫定",
-      "dailyCapsules": 1, "perCapsule": { "sesamin": 10 },
-      "needs": { "late_nights": 3, "sleep": 1 }, "excludeIf": ["allergy_sesame"]
+      "id": "probiotic",
+      "name": "專利益生菌",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定",
+      "dailyCapsules": 1,
+      "perCapsule": {
+        "probiotic": 100
+      },
+      "needs": {
+        "digestion": 4,
+        "eating_out": 1
+      },
+      "excludeIf": [
+        "taking_probiotic",
+        "allergy_milk"
+      ]
     },
     {
-      "id": "probiotic", "name": "專利益生菌", "enabled": true, "status": "placeholder", "source": "暫定",
-      "dailyCapsules": 1, "perCapsule": { "probiotic": 100 },
-      "needs": { "digestion": 4, "eating_out": 1 }, "excludeIf": []
+      "id": "digestive_enzyme",
+      "name": "綜合消化酵素",
+      "enabled": false,
+      "disabledReason": "建議加入：「消化與排便」目前只對到益生菌一項，待 Herbert 決定",
+      "status": "placeholder",
+      "source": "暫定",
+      "dailyCapsules": 1,
+      "perCapsule": {},
+      "needs": {
+        "digestion": 3,
+        "eating_out": 1
+      },
+      "excludeIf": []
     },
     {
-      "id": "grape_seed", "name": "葡萄籽多酚", "enabled": true, "status": "placeholder", "source": "暫定",
-      "groups": ["opc"], "dailyCapsules": 1, "perCapsule": { "grape_seed_extract": 100 },
-      "needs": { "screen": 2, "skin": 2, "late_nights": 1 }, "excludeIf": []
+      "id": "grape_seed",
+      "name": "葡萄籽多酚",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定",
+      "groups": [
+        "opc"
+      ],
+      "dailyCapsules": 1,
+      "perCapsule": {
+        "grape_seed_extract": 100
+      },
+      "needs": {
+        "skin": 2,
+        "late_nights": 1
+      },
+      "excludeIf": []
     },
     {
-      "id": "collagen", "name": "膠原蛋白", "enabled": true, "status": "placeholder", "source": "暫定（原料來源待確認，可能為魚）",
-      "dailyCapsules": 2, "perCapsule": { "collagen": 400 },
-      "needs": { "skin": 3, "exercise": 1 }, "excludeIf": ["allergy_fish"]
+      "id": "collagen",
+      "name": "膠原蛋白",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定（原料來源待確認，可能為魚）",
+      "dailyCapsules": 2,
+      "perCapsule": {
+        "collagen": 400
+      },
+      "needs": {
+        "skin": 3,
+        "exercise": 1
+      },
+      "excludeIf": [
+        "allergy_fish",
+        "vegetarian",
+        "taking_collagen"
+      ]
     },
     {
-      "id": "elderberry", "name": "接骨木莓", "enabled": true, "status": "placeholder", "source": "暫定",
-      "dailyCapsules": 1, "perCapsule": { "elderberry_extract": 200 },
-      "needs": { "seasonal": 3 }, "excludeIf": []
+      "id": "elderberry",
+      "name": "接骨木莓",
+      "enabled": true,
+      "status": "placeholder",
+      "source": "暫定",
+      "dailyCapsules": 1,
+      "perCapsule": {
+        "elderberry_extract": 200
+      },
+      "needs": {
+        "seasonal": 3
+      },
+      "excludeIf": []
     },
     {
-      "id": "nattokinase", "name": "納豆激酶", "enabled": false, "disabledReason": "可能增加出血風險，驗證期不納入",
-      "status": "placeholder", "source": "暫定", "groups": ["bleeding_risk"], "dailyCapsules": 1, "perCapsule": {},
-      "needs": {}, "excludeIf": ["surgery_soon", "allergy_soy"]
+      "id": "nattokinase",
+      "name": "納豆激酶",
+      "enabled": false,
+      "disabledReason": "可能增加出血風險，驗證期不納入",
+      "status": "placeholder",
+      "source": "暫定",
+      "groups": [
+        "bleeding_risk"
+      ],
+      "dailyCapsules": 1,
+      "perCapsule": {},
+      "needs": {},
+      "excludeIf": [
+        "surgery_soon",
+        "allergy_soy"
+      ]
     },
     {
-      "id": "ginkgo", "name": "銀杏萃取", "enabled": false, "disabledReason": "可能增加出血風險，驗證期不納入",
-      "status": "placeholder", "source": "暫定", "groups": ["bleeding_risk"], "dailyCapsules": 1, "perCapsule": {},
-      "needs": {}, "excludeIf": ["surgery_soon"]
+      "id": "ginkgo",
+      "name": "銀杏萃取",
+      "enabled": false,
+      "disabledReason": "可能增加出血風險，驗證期不納入",
+      "status": "placeholder",
+      "source": "暫定",
+      "groups": [
+        "bleeding_risk"
+      ],
+      "dailyCapsules": 1,
+      "perCapsule": {},
+      "needs": {},
+      "excludeIf": [
+        "surgery_soon"
+      ]
     },
     {
-      "id": "garlic", "name": "大蒜精", "enabled": false, "disabledReason": "可能增加出血風險，驗證期不納入",
-      "status": "placeholder", "source": "暫定", "groups": ["bleeding_risk"], "dailyCapsules": 1, "perCapsule": {},
-      "needs": {}, "excludeIf": ["surgery_soon"]
+      "id": "garlic",
+      "name": "大蒜精",
+      "enabled": false,
+      "disabledReason": "可能增加出血風險，驗證期不納入",
+      "status": "placeholder",
+      "source": "暫定",
+      "groups": [
+        "bleeding_risk"
+      ],
+      "dailyCapsules": 1,
+      "perCapsule": {},
+      "needs": {},
+      "excludeIf": [
+        "surgery_soon"
+      ]
     },
     {
-      "id": "curcumin", "name": "薑黃素", "enabled": false, "disabledReason": "可能增加出血風險，驗證期不納入",
-      "status": "placeholder", "source": "暫定", "groups": ["bleeding_risk"], "dailyCapsules": 1, "perCapsule": {},
-      "needs": {}, "excludeIf": ["surgery_soon"]
+      "id": "curcumin",
+      "name": "薑黃素",
+      "enabled": false,
+      "disabledReason": "可能增加出血風險，驗證期不納入",
+      "status": "placeholder",
+      "source": "暫定",
+      "groups": [
+        "bleeding_risk"
+      ],
+      "dailyCapsules": 1,
+      "perCapsule": {},
+      "needs": {},
+      "excludeIf": [
+        "surgery_soon"
+      ]
     }
   ]
 }
