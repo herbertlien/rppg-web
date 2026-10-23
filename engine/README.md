@@ -11,3 +11,5 @@
 - 測試：`node --test engine/engine.test.mjs`
 
 南都資料到了以後，只要改 `data/items.json`（每顆成分、`dailyCapsules`、`status: "confirmed"`），藥師核定後把 `pharmacistApproved` 改成 `true`。
+
+相關頁面：`quiz/`（客人填問卷，需從 LINE 開啟）、`review/`（審核頁，只有 ADMIN_LINE_SUBS 裡的帳號能用）。後端見 `backend/README.md`。

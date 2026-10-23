@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Deerly 生活習慣問卷</title>
+<link rel="stylesheet" href="../engine/chat.css">
+</head>
+<body>
+<h1>Deerly 生活習慣問卷</h1>
+<p id="status" class="mut">載入中…</p>
+
+<div id="consent" class="card" hidden>
+  <b>開始前請先看一下</b>
+  <p class="mut">（草稿，正式對外前會請專業人士審閱）</p>
+  <p>接下來會問你年齡、是否懷孕或用藥、作息、飲食與運動習慣，用來整理適合你的每日保健食品組合。</p>
+  <ul class="mut">
+    <li>你的回答會存在我們的資料庫，只有 Deerly 負責審核配方的人看得到，不會提供給第三方。</li>
+    <li>如果依你的回答我們不適合提供服務，這次的回答不會被保存。</li>
+    <li>配方由固定規則整理，再由人工確認後才會通知你；這不是醫療建議，有健康疑慮請諮詢醫師。</li>
+    <li>你隨時可以在本頁最下方刪除你的所有資料。</li>
+  </ul>
+  <button id="agree" class="go">我同意，開始問卷</button>
+</div>
+
+<div id="chat"></div>
+<div id="done" class="card" hidden></div>
+<button id="redo" class="go" hidden>重新填寫</button>
+<button id="del" class="go ghost" hidden>刪除我的所有資料</button>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script type="module">
+import { el, makeChat } from '../engine/chat.js';
+import { login, call } from '../engine/api.js';
+
+const $ = id => document.getElementById(id);
+const status = t => { $('status').textContent = t; };
+const load = f => fetch(`../engine/data/${f}.json`, { cache: 'no-store' }).then(r => r.json());
+const [questions, claims] = await Promise.all([load('questions'), load('claims')]);
+
+const STATUS_TEXT = {
+  needs_review: '你上次填寫的問卷已收到，我們正在整理你的組合，確認後會在 LINE 通知你。',
+  returned: '我們看過你上次的回答，想再跟你確認一些細節，會透過 LINE 跟你聯絡。',
+};
+
+try {
+  if (!(await login())) throw null;
+  await home();
+} catch (e) {
+  if (e) status('無法登入 LINE：' + e.message + '。請從 LINE 開啟本頁。');
+}
+
+async function home() {
+  const r = await call('mine');
+  if (r.status === 401) return status('登入已過期，請關閉後重新開啟。');
+  if (r.status !== 200) return status('讀取失敗（' + r.status + '），請稍後再試。');
+  const { consented, pack } = r.body;
+  $('del').hidden = !consented;
+  if (!consented) { status(''); $('consent').hidden = false; return; }
+  if (pack) return showPack(pack);
+  start();
+}
+
+function showPack(pack) {
+  status('');
+  const d = $('done');
+  d.replaceChildren();
+  d.hidden = false;
+  if (pack.status === 'approved') {
+    d.append(el('b', '', '你的每日組合'));
+    for (const it of pack.items) {
+      d.append(el('div', '', `${it.name}，每天 ${it.dailyCapsules} 顆`), el('div', 'mut', it.reason));
+    }
+  } else {
+    d.append(el('div', '', STATUS_TEXT[pack.status] || ''));
+  }
+  $('redo').hidden = false;
+}
+
+$('agree').onclick = async () => {
+  $('agree').disabled = true;
+  const r = await call('consent');
+  if (r.status !== 200) { $('agree').disabled = false; return status('同意未送出（' + r.status + '），請再試一次。'); }
+  $('consent').hidden = true;
+  $('del').hidden = false;
+  start();
+};
+
+$('redo').onclick = () => {
+  $('done').hidden = true;
+  $('redo').hidden = true;
+  $('chat').replaceChildren();
+  start();
+};
+
+$('del').onclick = async () => {
+  if ($('del').dataset.sure !== '1') { $('del').dataset.sure = '1'; $('del').textContent = '再按一次確認刪除（無法復原）'; return; }
+  const r = await call('delete');
+  if (r.status !== 200) return status('刪除失敗（' + r.status + '）');
+  $('chat').replaceChildren();
+  $('done').hidden = $('redo').hidden = $('del').hidden = true;
+  status('已刪除你的所有資料。');
+};
+
+async function start() {
+  status('');
+  const { say, run } = makeChat($('chat'));
+  say('bot', '嗨，我是下班鹿。接下來問你幾個關於作息和飲食的問題，大約三分鐘。');
+  const { answers, reject } = await run(questions, claims.rejectMessages);
+  if (reject) return;  // 不接單：不送出、不保存
+  const wait = say('bot', '收到，整理中…');
+  const r = await call('submit', { answers });
+  wait.remove();
+  if (r.status === 200 && r.body.status === 'received') {
+    say('bot', '謝謝你！我們會依你的回答整理一包，確認後在 LINE 通知你。');
+  } else if (r.status === 200 && r.body.status === 'rejected') {
+    for (const m of r.body.messages) say('bot', m);
+  } else if (r.status === 429) {
+    say('bot', '剛剛已經送出過了，請稍等半分鐘再試。');
+  } else if (r.status === 401) {
+    say('bot', '登入已過期，請關閉後重新開啟再填一次。');
+  } else {
+    say('bot', '送出失敗（' + r.status + '），請稍後再試。');
+  }
+}
+</script>
+</body>
+</html>
