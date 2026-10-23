@@ -64,7 +64,7 @@ function html(q, boxes, fs, idx, total, qfs, title) {
   const multi = q.type === 'multi';
   const lab = o => o.chip || o.label;
   const btn = (o, b) => `<div class="b" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px"><span style="font-size:${fs}px">${esc(lab(o))}</span>${multi ? '' : `<i style="font-size:${Math.round(fs * 0.9)}px">›</i>`}</div>`;
-  const done = multi ? `<div class="done" style="left:${PAD}px;top:${H - PAD - DONE_H}px;width:${W - PAD * 2}px;height:${DONE_H}px">選好了，按這裡完成 ✔</div>` : '';
+  const done = multi ? `<div class="done" style="left:${PAD}px;top:${H - PAD - DONE_H}px;width:${W - PAD * 2}px;height:${DONE_H}px">${q.options.some(o => o.exclusive) ? '選好了（沒有也按這裡）✔' : '選好了，按這裡完成 ✔'}</div>` : '';
   return `<!doctype html><meta charset="utf-8"><style>
   body{margin:0;width:${W}px;height:${H}px;background:${C.bg};font-family:${FONT};position:relative;overflow:hidden}
   .brand{position:absolute;left:${PAD}px;top:44px;font-size:68px;color:${C.ac};font-weight:700;letter-spacing:6px}
