@@ -359,7 +359,7 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
   const q = QS.find((x) => x.id === s.cur)!;
   const n = QS.filter((x) => isShown(x, s.answers)).indexOf(q) + 1;
   const total = QS.filter((x) => isShown(x, s.answers)).length;
-  const text = `（${n}/${total}）${q.text}${q.hint ? `\n${q.hint}` : ""}${q.type === "multi" ? `\n${q.max ? `最多選 ${q.max} 項。` : ""}點選項加入、再點一次取消，選好請按選單最下面的「完成」。` : ""}`;
+  const text = `（${n}/${total}）${q.text}${q.hint ? `\n${q.hint}` : ""}${q.type === "multi" ? `\n${q.max ? `最多選 ${q.max} 項。` : ""}點選項加入、再點一次取消，選好請按選單最下面的「完成」。${q.options.some((o) => o.exclusive) ? "都沒有的話，直接按「完成」就可以。" : ""}` : ""}`;
   const back = s.history.length ? [{ label: "‹ 上一題", data: "back" }] : [];
   const messages: unknown[] = [];
   if (notice) messages.push({ type: "text", text: notice });
@@ -407,7 +407,7 @@ async function finish(sub: string, replyToken: string, s: Session) {
 }
 
 // 套用一個答案後往下走
-async function advance(sub: string, replyToken: string, s: Session, q: Q) {
+async function advance(sub: string, replyToken: string, s: Session, q: Q, notice?: string) {
   const rejectOpt = q.options.find((o) => o.reject && [].concat(s.answers[q.id] as never).includes(o.value as never));
   if (rejectOpt) {
     await clearSession(s.user_id);
@@ -422,7 +422,7 @@ async function advance(sub: string, replyToken: string, s: Session, q: Q) {
   s.cur = nq.id;
   s.multi = [];
   await saveSession(s);
-  return askQuestion(sub, replyToken, s);
+  return askQuestion(sub, replyToken, s, notice);
 }
 
 const startQuick = quick([{ label: "開始問卷", text: "開始問卷" }]);
@@ -527,7 +527,13 @@ async function onPostback(sub: string, replyToken: string, data: string) {
     return reply(replyToken, [{ type: "text", text: `${notice ? notice + "\n" : ""}${now}\n（再點一次可取消，選好請按「完成」）` }]);
   }
   if (kind === "d" && q.type === "multi") {
-    if (!s.multi.length) return askQuestion(sub, replyToken, s, "請至少選一項，沒有的話選「都沒有」。");
+    if (!s.multi.length) {
+      // 什麼都沒選就按完成，視為「都沒有」；沒有這個選項的題目（如重點關注）才要求至少選一項
+      const none = q.options.find((o) => o.exclusive);
+      if (!none) return askQuestion(sub, replyToken, s, "請至少選一項。");
+      s.answers[q.id] = [none.value];
+      return advance(sub, replyToken, s, q, `沒有選的話，記為「${none.chip ?? none.label}」。`);
+    }
     s.answers[q.id] = [...s.multi];
     return advance(sub, replyToken, s, q);
   }
