@@ -21,6 +21,18 @@
   label{display:flex;gap:8px;align-items:flex-start;margin-top:8px}
   .card{background:var(--card);border-radius:10px;padding:12px;margin-top:10px}
   .big{font-size:40px;font-weight:700}
+  .hrbox{text-align:center;padding:8px 0}
+  .hrnum{font-size:72px;font-weight:700;line-height:1;color:var(--ac)}
+  .hrunit{font-size:16px;color:var(--mut)}
+  .cmp{font-size:17px;margin-top:8px}
+  .bat{margin-top:14px;text-align:left}
+  .batbar{height:14px;border-radius:7px;background:rgba(127,127,127,.25);overflow:hidden;margin:6px 0}
+  .batbar div{height:100%;background:var(--ac);width:0;transition:width .8s}
+  .chips{display:flex;gap:8px;margin-top:6px}
+  .chips button{margin:0;padding:8px;font-size:15px;background:none;color:var(--fg);border:1px solid var(--mut)}
+  .chips button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+  #breath{width:140px;height:140px;border-radius:50%;background:var(--ac);opacity:.7;margin:16px auto;transition:transform 4s ease-in-out;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px}
+  #breath.in{transform:scale(1.35)}
   .mut{color:var(--mut);font-size:14px}
   pre{white-space:pre-wrap;font-size:12px;margin:0}
 </style>
@@ -32,8 +44,24 @@
 <button id="go">開始（會要求使用前鏡頭）</button>
 <div class="card">
   <div id="st" class="mut">尚未開始</div>
-  <div class="big" id="hr">--</div>
-  <div class="mut" id="q"></div>
+  <div class="hrbox"><span class="hrnum" id="hr">--</span> <span class="hrunit" id="hrunit"></span></div>
+  <div class="mut" id="q" style="text-align:center"></div>
+  <div class="cmp" id="cmp" style="text-align:center"></div>
+  <div class="bat" id="bat" hidden>
+    <b>今日電量</b> <span id="batnum"></span>
+    <div class="batbar"><div id="batfill"></div></div>
+    <div class="mut" id="battxt"></div>
+    <div class="mut" style="margin-top:8px">昨晚睡得如何？（會微調電量）</div>
+    <div class="chips" id="sleepChips"><button data-v="good">不錯</button><button data-v="ok">普通</button><button data-v="bad">不太好</button></div>
+  </div>
+  <div class="mut" id="watchTip" style="margin-top:10px" hidden>想驗證準不準？量測時請戴著手錶，同時看手錶心率（這次是 30 秒平均，和手錶瞬間數字差幾下是正常的）。</div>
+</div>
+<div class="card" id="relax" hidden>
+  <b>一分鐘放鬆挑戰</b>
+  <p class="mut">跟著圓圈慢慢呼吸一分鐘，然後再量一次，看看你的心率有沒有降下來。</p>
+  <div id="breath"></div>
+  <div id="relaxRes" class="cmp" style="text-align:center"></div>
+  <button id="relaxBtn">開始一分鐘慢呼吸</button>
 </div>
 <button id="csv" disabled>匯出 CSV（對照 Apple Watch 用）</button>
 <div class="card" id="consent" hidden>
@@ -187,19 +215,53 @@ function roiMean(lm, idx) {
   return { m: [r / n, g / n, b / n], box: [x, y, w, h] };
 }
 
+const QMIN = 0.35;   // 低於此品質不顯示數字
 function show(r, final) {
-  $('hr').textContent = Math.round(r.bpm) + ' bpm';
-  const lvl = r.quality > .55 ? '良好' : r.quality > .35 ? '普通，建議重測' : '不佳，請重測';
-  $('q').textContent = '訊號品質：' + lvl + '（' + r.quality.toFixed(2) + '）' + (final ? '' : ' ・即時估計');
+  if (!final) { $('hr').textContent = '…'; $('hrunit').textContent = ''; $('q').textContent = '量測中，完成後顯示結果（訊號品質 ' + (r.quality > .55 ? '良好' : r.quality > QMIN ? '普通' : '偏弱') + '）'; return; }
+  if (r.quality < QMIN) {
+    $('hr').textContent = '--'; $('hrunit').textContent = '';
+    $('q').textContent = '這次訊號不夠穩，沒有顯示數字。請在更亮、均勻的光線下，手機放穩再量一次。';
+    return;
+  }
+  $('hr').textContent = Math.round(r.bpm); $('hrunit').textContent = '次／分';
+  $('q').textContent = '訊號品質：' + (r.quality > .55 ? '良好' : '普通，建議重測');
 }
+
+// ===== 跟自己比、今日電量 =====
+function baselineOf(scans) {
+  const cutoff = Date.now() - 28 * 864e5;
+  const ok = (scans || []).filter(s => s.quality >= QMIN && new Date(s.scanned_at).getTime() >= cutoff);
+  return ok.length >= 3 ? median(ok.map(s => s.bpm)) : null;
+}
+let sleepAdj = 0, curBase = null;
+function batteryOf(bpm, base) { return Math.max(5, Math.min(100, Math.round(70 - 4 * (bpm - base) + sleepAdj))); }
+function renderCompare(r) {
+  $('cmp').textContent = ''; $('bat').hidden = true;
+  if (r.quality < QMIN) return;
+  $('watchTip').hidden = false;
+  if (curBase === null) { $('cmp').textContent = '再量幾次（累積 3 次），就能比較你的平常心率，並解鎖「今日電量」。'; return; }
+  const d = Math.round(r.bpm - curBase);
+  $('cmp').textContent = d === 0 ? '和你平常差不多（平常約 ' + Math.round(curBase) + '）' : '比你平常' + (d > 0 ? '高' : '低') + ' ' + Math.abs(d) + ' 下（平常約 ' + Math.round(curBase) + '）';
+  const b = batteryOf(r.bpm, curBase);
+  $('bat').hidden = false;
+  $('batnum').textContent = b + '%';
+  $('batfill').style.width = b + '%';
+  $('battxt').textContent = (b >= 80 ? '電力充足。' : b >= 55 ? '電力正常。' : '電力偏低，今天可以早點休息。') + '這是和你自己平常比較的參考，不是醫療判斷。';
+}
+document.querySelectorAll('#sleepChips button').forEach(btn => btn.onclick = () => {
+  sleepAdj = { good: 8, ok: 0, bad: -8 }[btn.dataset.v];
+  document.querySelectorAll('#sleepChips button').forEach(x => x.classList.toggle('on', x === btn));
+  if (lastResult) renderCompare(lastResult);
+});
 
 function series(from = 0) {
   const s = rows.slice(from);
   return { t: s.map(r => r.t), ch: [0, 1, 2].map(c => s.map(r => r.rgb[c])) };
 }
 
+let relaxMode = false, beforeRes = null;
 async function run() {
-  $('go').disabled = true; $('csv').disabled = true; rows = []; lastResult = null; $('hr').textContent = '--';
+  $('go').disabled = true; $('csv').disabled = true; rows = []; lastResult = null; $('hr').textContent = '--'; $('hrunit').textContent = ''; $('cmp').textContent = ''; $('bat').hidden = true;
   try {
     stage('等待模型載入完成…'); await ready; stage('模型就緒，啟動鏡頭…');
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
@@ -239,10 +301,35 @@ async function run() {
       const fps = rows.length / rows[rows.length - 1].t;
       $('st').textContent = '完成（' + rows.length + ' 幀，平均 ' + fps.toFixed(1) + ' fps）';
       $('csv').disabled = false;
-      onScanDone();
+      if (relaxMode) relaxDone(lastResult); else { curBase = baselineOf(cloud.scans); renderCompare(lastResult); offerRelax(lastResult); onScanDone(); }
     }
   } catch (e) { $('st').textContent = '失敗：' + e.name + ' ' + e.message; }
   $('go').disabled = false; $('go').textContent = '重新量測';
+}
+
+// ===== 一分鐘放鬆挑戰（放鬆後的量測不儲存、不計入平常心率）=====
+function offerRelax(r) {
+  $('relax').hidden = r.quality < QMIN;
+  $('relaxRes').textContent = ''; $('relaxBtn').hidden = false; $('relaxBtn').disabled = false; $('breath').textContent = '';
+  beforeRes = r;
+}
+$('relaxBtn').onclick = async () => {
+  $('relaxBtn').disabled = true; $('go').disabled = true;
+  const b = $('breath'); let left = 60, phase = 0;
+  const tick = () => { b.classList.toggle('in', phase % 10 < 4); b.textContent = phase % 10 < 4 ? '吸' : '吐'; phase++; };
+  tick(); const iv = setInterval(tick, 1000);
+  $('relaxRes').textContent = '慢慢吸氣 4 秒、吐氣 6 秒，剩 ' + left + ' 秒';
+  await new Promise(done => { const c = setInterval(() => { left--; $('relaxRes').textContent = '慢慢吸氣 4 秒、吐氣 6 秒，剩 ' + left + ' 秒'; if (left <= 0) { clearInterval(c); done(); } }, 1000); });
+  clearInterval(iv); b.classList.remove('in'); b.textContent = '';
+  $('relaxRes').textContent = '接著請正常呼吸，再量一次…';
+  relaxMode = true; await run(); relaxMode = false;
+};
+function relaxDone(r) {
+  $('hr').textContent = Math.round(beforeRes.bpm); $('hrunit').textContent = '次／分'; $('q').textContent = '上方是放鬆前的結果';
+  $('relaxBtn').hidden = true;
+  if (r.quality < QMIN) { $('relaxRes').textContent = '放鬆後這次訊號不夠穩，沒辦法比較。可以再試一次。'; $('relaxBtn').hidden = false; $('relaxBtn').disabled = false; return; }
+  const d = Math.round(beforeRes.bpm - r.bpm);
+  $('relaxRes').textContent = '放鬆前 ' + Math.round(beforeRes.bpm) + ' → 放鬆後 ' + Math.round(r.bpm) + '（' + (d > 0 ? '慢了 ' + d + ' 下' : d < 0 ? '快了 ' + (-d) + ' 下' : '差不多') + '）。單次差異也可能來自量測誤差。';
 }
 
 // 一開頁就先載入模型，使用者讀說明的時間就不浪費
@@ -290,7 +377,7 @@ async function refresh() {
   cloud.consented = r.body.consented;
   $('consent').hidden = cloud.consented;
   $('hist').hidden = !cloud.consented;
-  if (cloud.consented) renderHist(r.body.scans);
+  if (cloud.consented) { renderHist(r.body.scans); cloud.scans = r.body.scans; }
 }
 
 onScanDone = async () => {
@@ -312,7 +399,7 @@ $('consentBtn').onclick = async () => {
 $('del').onclick = async () => {
   if (!confirm('確定刪除你在這裡的所有量測紀錄與同意紀錄？此動作無法復原。')) return;
   const r = await api('delete');
-  if (r.status === 200) { cloud.consented = false; $('hist').hidden = true; $('st').textContent = '已刪除你的所有資料'; } else { $('st').textContent = '刪除失敗（' + r.status + '）'; }
+  if (r.status === 200) { cloud.consented = false; cloud.scans = []; $('hist').hidden = true; $('st').textContent = '已刪除你的所有資料'; } else { $('st').textContent = '刪除失敗（' + r.status + '）'; }
 };
 
 (async () => {
