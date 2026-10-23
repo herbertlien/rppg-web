@@ -59,6 +59,11 @@
   </div>
   <div class="mut" id="watchTip" style="margin-top:10px" hidden>想驗證準不準？量測時請戴著手錶，同時看手錶心率（這次是 30 秒平均，和手錶瞬間數字差幾下是正常的）。</div>
 </div>
+<div class="card" id="cta" hidden>
+  <b>接著，整理你的每日組合</b>
+  <p class="mut">回答幾個作息與飲食的問題（約 2 分鐘），我們會為你整理適合的每日保健食品。心率只是讓你認識自己，組合由你的問卷回答決定。</p>
+  <button id="ctaBtn">開始 2 分鐘問卷</button>
+</div>
 <div class="card" id="relax" hidden>
   <b>一分鐘放鬆挑戰</b>
   <p class="mut">跟著圓圈慢慢呼吸一分鐘，然後再量一次，看看你的心率有沒有降下來。</p>
@@ -325,6 +330,7 @@ async function run() {
 // ===== 一分鐘放鬆挑戰（放鬆後的量測不儲存、不計入平常心率）=====
 function offerRelax(r) {
   $('relax').hidden = r.quality < QMIN;
+  $('cta').hidden = r.quality < QMIN || !cloud.on;
   $('relaxRes').textContent = ''; $('relaxBtn').hidden = false; $('relaxBtn').disabled = false; $('breath').textContent = '';
   beforeRes = r;
 }
@@ -405,6 +411,7 @@ onScanDone = async () => {
   if (r.status === 200) refresh();
 };
 
+$('ctaBtn').onclick = () => { location.href = './quiz/'; };
 $('agree').onchange = () => { $('consentBtn').disabled = !$('agree').checked; };
 $('consentBtn').onclick = async () => {
   $('consentBtn').disabled = true;
