@@ -1,6 +1,7 @@
 // 一次一題的問卷介面。預覽頁與正式問卷頁共用。
 // 單選題點了就跳下一題；複選題按底部的「下一題」；隨時可回上一題；最後有總覽可修改再送出。
-import { isShown } from './engine.js';
+// 沿用本檔的版本號載入引擎，確保兩者同一版
+const { isShown } = await import('./engine.js' + new URL(import.meta.url).search);
 
 export const el = (tag, cls, text) => {
   const e = document.createElement(tag);

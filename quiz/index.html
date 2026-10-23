@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Deerly 生活習慣問卷</title>
-<link rel="stylesheet" href="../engine/style.css">
+<link rel="stylesheet" href="../engine/style.css?v=202610230506">
 </head>
 <body>
 <h1 id="title">Deerly 生活習慣問卷</h1>
@@ -30,12 +30,21 @@
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
-import { el, runSurvey } from '../engine/survey.js';
-import { login, call } from '../engine/api.js';
+// 版本檢查：LINE 會快取舊網頁，發現有新版就帶版本號重新載入一次
+const V = '202610230506';
+{
+  const u = new URL(location.href);
+  try {
+    const { v } = await fetch(`../engine/version.json`, { cache: 'no-store' }).then(r => r.json());
+    if (v !== V && u.searchParams.get('_v') !== v) { u.searchParams.set('_v', v); location.replace(u); await new Promise(() => {}); }
+  } catch { /* 讀不到版本檔就用目前的版本 */ }
+}
+const { el, runSurvey } = await import(`../engine/survey.js?v=${V}`);
+const { login, call } = await import(`../engine/api.js?v=${V}`);
 
 const $ = id => document.getElementById(id);
 const status = t => { $('status').textContent = t; };
-const load = f => fetch(`../engine/data/${f}.json`, { cache: 'no-store' }).then(r => r.json());
+const load = f => fetch(`../engine/data/${f}.json?v=${V}`).then(r => r.json());
 const [questions, claims] = await Promise.all([load('questions'), load('claims')]);
 
 const STATUS_TEXT = {
@@ -115,7 +124,7 @@ async function start() {
   $('chat').replaceChildren();
   homeVisible(true);
   status('送出中…');
-  const r = await call('submit', { answers });
+  const r = await call('submit', { answers, questionsVersion: questions.version });
   status('');
   const d = $('done');
   d.hidden = false;
@@ -123,6 +132,8 @@ async function start() {
     d.replaceChildren(el('div', '', '謝謝你！我們會依你的回答整理一包，確認後在 LINE 通知你。'));
   } else if (r.status === 200 && r.body.status === 'rejected') {
     d.replaceChildren(...r.body.messages.map(m => el('div', '', m)));
+  } else if (r.status === 409 && r.body?.error === 'outdated') {
+    d.replaceChildren(el('div', '', '問卷剛好更新了，請把這個頁面關掉再重新打開，重填一次。不好意思！'));
   } else if (r.status === 429) {
     d.replaceChildren(el('div', '', '剛剛已經送出過了，請稍等半分鐘再試。'));
   } else if (r.status === 401) {
