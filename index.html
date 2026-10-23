@@ -444,7 +444,6 @@ onScanDone = async () => {
   if (r.status === 200) refresh();
   // 在聊天室裡開啟時，替使用者在聊天室留一句「我量好了」，官方帳號會回覆結果。需要 LIFF 開啟 chat_message.write 權限，沒有就略過
   if (r.status === 200 && lastResult.quality >= QMIN && liff.isInClient()) {
-    $('chatBtn').hidden = false;
     try { await liff.sendMessages([{ type: 'text', text: '我量好了' }]); } catch (e) { /* 沒有權限或不在聊天室 */ }
   }
 };
@@ -469,6 +468,13 @@ $('del').onclick = async () => {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liffOut('未登入（非 LINE 內開啟時，量測結果只顯示、不儲存）'); return; }
     cloud.on = true;
+    // 在聊天室裡開啟時，量完直接回聊天室繼續（官方帳號會接著引導問卷），不再跳網頁問卷
+    if (liff.isInClient()) {
+      $('ctaBtn').textContent = '回聊天室，繼續下一步 ›';
+      $('ctaBtn').onclick = () => { try { liff.closeWindow(); } catch { /* 非 LINE 內 */ } };
+      $('chatBtn').remove();
+      document.querySelector('#dock .mut').textContent = '結果已傳到聊天室，回去就能繼續';
+    }
     liffOut('已登入 LINE，量測結果可儲存');
     await refresh();
   } catch (e) { liffOut('失敗 ' + e.message); }
