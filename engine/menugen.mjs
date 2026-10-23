@@ -110,19 +110,25 @@ h1 b{color:#2f7d5b}
 await page.screenshot({ path: new URL('intro.png', out).pathname });
 
 // 主選單：三步驟卡片，編號與箭頭表達先後順序
-const HW = 2500, HH = 843, hb = [['scan', '今日電量', '30 秒掃臉看狀態'], ['quiz', '每日問卷', '整理你的組合'], ['pack', '我的組合', '看目前狀態']];
+const HW = 2500, HH = 1120, STRIP = 340, hb = [['scan', '今日電量', '30 秒掃臉看狀態'], ['quiz', '每日問卷', '整理你的組合'], ['pack', '我的組合', '看目前狀態']];
 const hg = 110, hw = Math.floor((HW - 60 * 2 - hg * 2) / 3);
+const logoUri = 'data:image/png;base64,' + readFileSync(new URL('../menus/brand-logo.png', import.meta.url)).toString('base64');
 await page.setViewportSize({ width: HW, height: HH });
 await page.setContent(`<!doctype html><meta charset="utf-8"><style>
 body{margin:0;width:${HW}px;height:${HH}px;background:${C.bg};font-family:${FONT};position:relative;overflow:hidden}
-.b{position:absolute;top:50px;height:${HH - 100}px;width:${hw}px;box-sizing:border-box;background:${C.card};border:8px solid ${C.ac};border-radius:72px;box-shadow:0 14px 0 ${C.soft};display:flex;flex-direction:column;align-items:center;justify-content:center;color:${C.acDark}}
+.brandrow{position:absolute;left:60px;right:60px;top:40px;height:${STRIP - 80}px;display:flex;align-items:center;gap:56px}
+.brandrow img{width:250px;height:250px;border-radius:56px;background:#fff;box-shadow:0 10px 0 ${C.soft}}
+.brandrow .t small{display:block;font-size:56px;font-weight:700;letter-spacing:16px;color:${C.ac};margin-bottom:8px}
+.brandrow .t b{font-size:132px;font-weight:900;color:${C.ink};line-height:1.15;white-space:nowrap}
+.brandrow .t b em{font-style:normal;color:${C.ac}}
+.b{position:absolute;top:${STRIP}px;height:${HH - STRIP - 50}px;width:${hw}px;box-sizing:border-box;background:${C.card};border:8px solid ${C.ac};border-radius:72px;box-shadow:0 14px 0 ${C.soft};display:flex;flex-direction:column;align-items:center;justify-content:center;color:${C.acDark}}
 .b .no{width:190px;height:190px;border-radius:95px;background:${C.ac};color:#fff;font-size:130px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:26px}
 .b b{font-size:140px;font-weight:800;line-height:1.1}.b i{font-style:normal;font-size:78px;color:${C.mut};margin-top:14px;font-weight:600}
-.ar{position:absolute;top:${HH / 2 - 70}px;width:${hg}px;text-align:center;font-size:120px;color:${C.ac};line-height:1}
-</style>` + hb.map((h, i) => `<div class="b" style="left:${60 + i * (hw + hg)}px"><div class="no">${i + 1}</div><b>${h[1]}</b><i>${h[2]}</i></div>`).join('') +
+.ar{position:absolute;top:${STRIP + (HH - STRIP - 50) / 2 - 70}px;width:${hg}px;text-align:center;font-size:120px;color:${C.ac};line-height:1}
+</style><div class="brandrow"><img src="${logoUri}"><div class="t"><small>DEERLY</small><b>把每天的保養，整理成<em>一包</em></b></div></div>` + hb.map((h, i) => `<div class="b" style="left:${60 + i * (hw + hg)}px"><div class="no">${i + 1}</div><b>${h[1]}</b><i>${h[2]}</i></div>`).join('') +
   [0, 1].map(i => `<div class="ar" style="left:${60 + (i + 1) * hw + i * hg}px">›</div>`).join(''));
 await page.screenshot({ path: new URL('home.png', out).pathname });
-areas.home = hb.map((h, i) => ({ key: h[0], x: i === 0 ? 0 : 60 + i * (hw + hg) - hg / 2, y: 0, w: i === 0 ? 60 + hw + hg / 2 : i === 2 ? HW - (60 + i * (hw + hg) - hg / 2) : hw + hg, h: HH }));
+areas.home = hb.map((h, i) => ({ key: h[0], x: i === 0 ? 0 : 60 + i * (hw + hg) - hg / 2, y: STRIP, w: i === 0 ? 60 + hw + hg / 2 : i === 2 ? HW - (60 + i * (hw + hg) - hg / 2) : hw + hg, h: HH - STRIP }));
 writeFileSync(new URL('areas.json', out), JSON.stringify({ version: data.version, areas }, null, 2));
 await browser.close();
 console.log('產生', data.questions.length, '張，題目版本', data.version);
