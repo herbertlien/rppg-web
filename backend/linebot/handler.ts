@@ -13,6 +13,7 @@ const CONSENT_VERSION = "intake-v1";
 const ADMINS = (Deno.env.get("ADMIN_LINE_SUBS") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const SECRET = Deno.env.get("LINE_CHANNEL_SECRET") ?? "";
 const TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") ?? "";
+const LIFF_URL = "https://liff.line.me/2012160129-CwL40nTW";
 const ASSET_BASE = Deno.env.get("ASSET_BASE") ?? "https://herbertlien.github.io/rppg-web/menus/";
 
 const db = createClient(
@@ -106,10 +107,12 @@ async function clearSession(uid: string) {
   if (r.error) throw r.error;
 }
 
-const quick = (items: { label: string; data?: string; text?: string }[]) => ({
+const quick = (items: { label: string; data?: string; text?: string; uri?: string }[]) => ({
   items: items.map((i) => ({
     type: "action",
-    action: i.data
+    action: i.uri
+      ? { type: "uri", label: i.label.slice(0, 20), uri: i.uri }
+      : i.data
       ? { type: "postback", label: i.label.slice(0, 20), data: i.data, displayText: i.label.slice(0, 20) }
       : { type: "message", label: i.label.slice(0, 20), text: i.text ?? i.label },
   })),
@@ -209,8 +212,56 @@ async function advance(sub: string, replyToken: string, s: Session, q: Q) {
   return askQuestion(sub, replyToken, s);
 }
 
+const startQuick = quick([{ label: "開始問卷", text: "開始問卷" }]);
+
+// 主選單「我的組合」：看最近一份的狀態
+async function showPack(sub: string, replyToken: string) {
+  const uid = await findUser(sub, false);
+  const p = uid
+    ? await db.from("packs").select("status,item_ids,created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(1).maybeSingle()
+    : null;
+  if (p?.error) throw p.error;
+  if (!p?.data) return reply(replyToken, [{ type: "text", text: "你還沒有組合。回答 20 題問卷，我們就能整理一份給你。", quickReply: startQuick }]);
+  if (p.data.status === "approved") {
+    const names = (p.data.item_ids as string[]).map((id) => DATA.items.items.find((i: { id: string }) => i.id === id)?.name ?? id);
+    return reply(replyToken, [{ type: "text", text: `你目前的每日組合：\n${names.map((n) => `・${n}`).join("\n")}\n\n每月會依你的狀況調整一次。` }]);
+  }
+  if (p.data.status === "returned") return reply(replyToken, [{ type: "text", text: "上一份組合需要再調整，請重新回答問卷。", quickReply: startQuick }]);
+  return reply(replyToken, [{ type: "text", text: "你的組合整理中，確認後會在這裡通知你。" }]);
+}
+
+// 量心率完成後，使用者端會自動送出「我量好了」，這裡回覆最新一次的結果
+async function onScanDone(sub: string, replyToken: string) {
+  const uid = await findUser(sub, false);
+  const rows = uid
+    ? await db.from("scans").select("bpm,quality,scanned_at").eq("user_id", uid).order("scanned_at", { ascending: false }).limit(60)
+    : null;
+  if (rows?.error) throw rows.error;
+  const last = rows?.data?.[0];
+  const again = quick([{ label: "再量一次", uri: LIFF_URL }]);
+  if (!last || Date.now() - new Date(last.scanned_at).getTime() > 15 * 60e3) {
+    return reply(replyToken, [{ type: "text", text: "還沒看到新的量測結果，請點下方選單的「量心率」。", quickReply: again }]);
+  }
+  if (last.quality < 0.35) return reply(replyToken, [{ type: "text", text: "這次訊號不太穩，請在光線充足的地方再量一次。", quickReply: again }]);
+  const base = (rows!.data as { bpm: number; quality: number; scanned_at: string }[]).slice(1)
+    .filter((r) => r.quality >= 0.35 && Date.now() - new Date(r.scanned_at).getTime() < 28 * 864e5).map((r) => r.bpm).sort((a, b) => a - b);
+  let cmp = "";
+  if (base.length >= 3) {
+    const m = base.length >> 1, med = base.length % 2 ? base[m] : (base[m - 1] + base[m]) / 2;
+    const d = Math.round(last.bpm - med);
+    cmp = d === 0 ? "，和你平常差不多" : `，比你平常${d > 0 ? "高" : "低"} ${Math.abs(d)} 下`;
+  }
+  const hasPack = uid ? !!(await db.from("packs").select("id").eq("user_id", uid).limit(1)).data?.length : false;
+  const next = hasPack ? "" : "\n\n心率只是讓你認識自己，組合由問卷回答決定。接著回答問卷，整理你的每日組合。";
+  return reply(replyToken, [{
+    type: "text", text: `你剛剛量到每分鐘 ${Math.round(last.bpm)} 下${cmp}。心率僅供參考，不影響配方。${next}`,
+    ...(hasPack ? {} : { quickReply: startQuick }),
+  }]);
+}
+
 async function onPostback(sub: string, replyToken: string, data: string) {
   const [kind, qid, value] = data.split("|");
+  if (kind === "home") return qid === "pack" ? showPack(sub, replyToken) : startFlow(sub, replyToken);
   if (kind === "consent") {
     if (qid !== "yes") return reply(replyToken, [{ type: "text", text: "好的，需要的時候輸入「開始問卷」就可以。" }]);
     const uid = await findUser(sub, true);
@@ -270,6 +321,8 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 
 async function onText(sub: string, replyToken: string, text: string) {
   if (/^(開始問卷|開始|問卷)$/.test(text.trim())) return startFlow(sub, replyToken);
+  if (/^我量好了/.test(text.trim())) return onScanDone(sub, replyToken);
+  if (text.trim() === "我的組合") return showPack(sub, replyToken);
   if (text.trim() === "上一題") return onPostback(sub, replyToken, "back");
   const uid = await findUser(sub, false);
   const s = uid ? await loadSession(uid) : null;
@@ -316,7 +369,32 @@ async function setupMenus() {
     if (prev) await line(`/v2/bot/richmenu/${prev.rich_menu_id}`, "DELETE").catch(() => {});
     done.push(q.id);
   }
+  done.push(await setupHome(areas.home));
   return done;
+}
+
+// 主選單（預設選單）：量心率、每日問卷、我的組合。沒有在作答的人都看這個
+async function setupHome(a: { key: string; x: number; y: number; w: number; h: number }[]) {
+  if (!a) throw new Error("缺少主選單的圖");
+  const act = (k: string) => k === "scan"
+    ? { type: "uri", uri: LIFF_URL }
+    : { type: "postback", data: `home|${k}`, displayText: k === "quiz" ? "開始問卷" : "我的組合" };
+  const created = await line("/v2/bot/richmenu", "POST", {
+    size: { width: 2500, height: 843 }, selected: false, name: "home", chatBarText: "主選單",
+    areas: a.map((x) => ({ bounds: { x: x.x, y: x.y, width: x.w, height: x.h }, action: act(x.key) })),
+  });
+  const img = await fetch(`${ASSET_BASE}home.png`);
+  if (!img.ok) throw new Error(`home.png ${img.status}`);
+  const up = await fetch("https://api-data.line.me/v2/bot/richmenu/" + created.richMenuId + "/content", {
+    method: "POST", headers: { authorization: `Bearer ${TOKEN}`, "content-type": "image/png" }, body: new Uint8Array(await img.arrayBuffer()),
+  });
+  if (!up.ok) throw new Error(`上傳 home 失敗 ${up.status}`);
+  await line(`/v2/bot/user/all/richmenu/${created.richMenuId}`);
+  const prev = await db.from("rich_menus").select("rich_menu_id").eq("question_id", "_home").maybeSingle();
+  const u = await db.from("rich_menus").upsert({ question_id: "_home", rich_menu_id: created.richMenuId, questions_version: DATA.questions.version });
+  if (u.error) throw u.error;
+  if (prev.data) await line(`/v2/bot/richmenu/${prev.data.rich_menu_id}`, "DELETE").catch(() => {});
+  return "home";
 }
 
 Deno.serve(async (req) => {
