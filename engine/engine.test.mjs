@@ -9,9 +9,10 @@ const data = { items: load('items'), limits: load('limits'), questions: load('qu
 
 // 一位典型的科技業上班族
 const base = {
-  age: '30_39', pregnancy: 'no', medication: 'no', conditions: ['none'], surgery: 'no', allergy: ['none'],
-  focus: ['sleep', 'stress'], sleep: 'poor', bedtime: 'after_1', stress: 'high', meals_out: 'most',
-  veg: '0_2', exercise: '0', screen: 'gt10', tier: 'basic',
+  age: '30_34', sex: 'female', pregnancy: 'no', medication: 'no', conditions: ['none'], allergy: ['none'],
+  diet: 'omni', supplements: ['none'], focus: ['sleep', 'stress'], sleep_hours: 'lt6', sleep_quality: 'poor',
+  stress: 'high', caffeine: '3plus', alcohol: 'rare', meals_out: 'most', veg: '0_1', bowel: 'regular',
+  exercise: '0', tier: 'basic',
 };
 
 test('資料檔彼此一致', () => {
@@ -47,10 +48,10 @@ test('理由句不含禁用詞', () => {
 for (const [q, v, why] of [
   ['age', 'under18', 'under18'],
   ['pregnancy', 'yes', 'pregnancy'],
-  ['medication', 'yes', 'medication'],
   ['conditions', ['kidney'], 'kidney'],
   ['conditions', ['liver'], 'liver'],
   ['conditions', ['treatment'], 'treatment'],
+  ['medication', 'regular', 'medication'],
 ]) {
   test(`拒收：${why}`, () => {
     const r = buildPack({ ...base, [q]: v }, data);
@@ -75,7 +76,7 @@ test('不存在的選項會被擋下', () => {
 });
 
 test('對芝麻過敏就不會拿到芝麻素', () => {
-  const r = buildPack({ ...base, allergy: ['sesame'], tier: 'advanced' }, data);
+  const r = buildPack({ ...base, allergy: ['sesame'], alcohol: '3plus', tier: 'advanced' }, data);
   assert.ok(!r.items.some(i => i.id === 'sesamin'));
   assert.ok(r.skipped.some(s => s.id === 'sesamin'));
 });
@@ -122,4 +123,57 @@ test('禁用詞過濾', () => {
   assert.deepEqual(findBannedTerms('這個可以改善失眠喔', data.claims), ['改善失眠']);
   assert.deepEqual(findBannedTerms('依你的作息，我們幫你整理了這包', data.claims), []);
   assert.ok(findBannedTerms('增 強 免 疫 力', data.claims).length > 0);
+});
+
+test('男性不問懷孕題，沒答也不算缺題', () => {
+  const { pregnancy, ...rest } = base;
+  assert.equal(buildPack({ ...rest, sex: 'male' }, data).status, 'needs_review');
+  assert.equal(buildPack(rest, data).status, 'invalid');   // 女性沒答懷孕題 → 缺題
+});
+
+test('男性就算送了懷孕題的答案也不計入', () => {
+  assert.equal(buildPack({ ...base, sex: 'male', pregnancy: 'yes' }, data).status, 'needs_review');
+});
+
+test('偶爾吃成藥不拒收，但提醒審核者', () => {
+  const r = buildPack({ ...base, medication: 'occasional' }, data);
+  assert.equal(r.status, 'needs_review');
+  assert.ok(r.warnings.some(w => w.includes('成藥')));
+});
+
+test('吃素不會拿到膠原蛋白，並提醒膠囊殼材質', () => {
+  const r = buildPack({ ...base, diet: 'lacto_ovo', focus: ['skin'], tier: 'advanced' }, data);
+  assert.ok(!r.items.some(i => i.id === 'collagen'));
+  assert.ok(r.warnings.some(w => w.includes('膠囊殼')));
+});
+
+test('已在吃綜合維他命就不給 B 群，並提醒審核者', () => {
+  const r = buildPack({ ...base, focus: ['energy', 'stress'], supplements: ['multi'], tier: 'advanced' }, data);
+  assert.ok(!r.items.some(i => i.id === 'b_complex_e'));
+  assert.ok(r.warnings.some(w => w.includes('綜合維他命')));
+});
+
+test('已在吃的品項不重複給', () => {
+  const r = buildPack({ ...base, focus: ['digestion'], bowel: 'constipation', supplements: ['probiotic'], tier: 'advanced' }, data);
+  assert.ok(!r.items.some(i => i.id === 'probiotic'));
+});
+
+test('常喝酒、睡不夠的人會拿到芝麻素', () => {
+  const r = buildPack({ ...base, alcohol: '3plus', tier: 'advanced' }, data);
+  assert.ok(r.items.some(i => i.id === 'sesamin'));
+});
+
+test('每個想照顧的部分都至少對得到一個啟用品項', () => {
+  const q = data.questions.questions.find(x => x.id === 'focus');
+  for (const o of q.options) {
+    const tag = Object.keys(o.needs)[0];
+    const n = data.items.items.filter(i => i.enabled && i.needs[tag]).length;
+    assert.ok(n >= 1, `${o.label} 沒有對到任何品項`);
+  }
+});
+
+test('顯示條件必須引用前面的題目', () => {
+  const questions = structuredClone(data.questions);
+  questions.questions[0].showIf = { tier: ['basic'] };
+  assert.ok(validateData({ ...data, questions }).length > 0);
 });

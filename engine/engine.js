@@ -32,19 +32,38 @@ export function validateData({ items, limits, questions, claims }) {
     for (const k of Object.keys(it.perCapsule || {})) if (!limits.nutrients[k]) errs.push(`品項 ${it.id} 的成分 ${k} 未在 limits.json 登記名稱與單位`);
   }
   if (!questions.questions.some(q => q.options.some(o => o.tier))) errs.push('沒有選擇方案（tier）的題目');
+  questions.questions.forEach((q, i) => {
+    for (const [id, vals] of Object.entries(q.showIf || {})) {
+      const j = questions.questions.findIndex(x => x.id === id);
+      if (j < 0 || j >= i) errs.push(`題目 ${q.id} 的顯示條件必須引用前面的題目：${id}`);
+      else for (const v of vals) if (!questions.questions[j].options.some(o => o.value === v)) errs.push(`題目 ${q.id} 的顯示條件引用不存在的選項：${id}=${v}`);
+    }
+  });
   return errs;
 }
 
-// 檢查答案格式，並整理出拒收原因、個人旗標、需求分數、方案。
+// 這題要不要問：showIf 指定的前一題，答案必須在清單內
+export function isShown(q, answers) {
+  if (!q.showIf) return true;
+  return Object.entries(q.showIf).every(([id, vals]) => {
+    const a = answers[id];
+    return (Array.isArray(a) ? a : [a]).some(v => vals.includes(v));
+  });
+}
+
+// 檢查答案格式，並整理出拒收原因、個人旗標、需求分數、提醒、方案。
 export function readAnswers(answers, questions) {
   const errors = [];
   const rejects = [];
   const flags = new Set();
   const needs = {};          // tag → 分數
   const evidence = {};       // tag → [{ text, pts }]，給理由用
+  const warns = [];          // 給審核者的提醒
+  const flagLabels = {};     // 旗標 → 觸發它的選項文字，給跳過原因用
   let tier = null;
 
   for (const q of questions.questions) {
+    if (!isShown(q, answers)) continue;   // 沒問到的題目不計
     const raw = answers[q.id];
     if (raw === undefined || raw === null || (Array.isArray(raw) && !raw.length)) {
       errors.push(`未回答：${q.id}`);
@@ -60,16 +79,17 @@ export function readAnswers(answers, questions) {
     if (opts.length > 1 && opts.some(o => o.exclusive)) errors.push(`${q.id}：「${opts.find(o => o.exclusive).label}」不能和其他選項同時選`);
     for (const o of opts) {
       if (o.reject) rejects.push(o.reject);
-      (o.flags || []).forEach(f => flags.add(f));
+      if (o.warn) warns.push(o.warn);
+      (o.flags || []).forEach(f => { flags.add(f); flagLabels[f] = o.label; });
       for (const [t, p] of Object.entries(o.needs || {})) {
         needs[t] = (needs[t] || 0) + p;
-        const text = (q.reason || '你選了「{label}」').replace('{label}', o.label);
+        const text = o.reason || (q.reason || '你選了「{label}」').replace('{label}', o.label);
         (evidence[t] ||= []).push({ text, pts: p });
       }
       if (o.tier) tier = o.tier;
     }
   }
-  return { errors, rejects, flags, needs, evidence, tier };
+  return { errors, rejects, flags, flagLabels, needs, evidence, warns, tier };
 }
 
 // 一個品項每天的成分量
@@ -111,7 +131,7 @@ export function buildPack(answers, data) {
   items.items.forEach((it, order) => {
     if (!it.enabled) return;
     const hit = (it.excludeIf || []).find(f => a.flags.has(f));
-    if (hit) { skipped.push({ id: it.id, name: it.name, why: `個人禁用條件：${hit}` }); return; }
+    if (hit) { skipped.push({ id: it.id, name: it.name, why: `客人回答「${a.flagLabels[hit]}」` }); return; }
     let score = 0;
     let best = null;   // 貢獻最多的那個回答，拿來寫理由
     for (const [tag, w] of Object.entries(it.needs || {})) {
@@ -139,9 +159,8 @@ export function buildPack(answers, data) {
     chosen.push(c);
   }
 
-  const warnings = [];
+  const warnings = [...a.warns];
   if (chosen.length < a.tier) warnings.push(`符合條件的品項只有 ${chosen.length} 項，少於方案的 ${a.tier} 項，需人工補選`);
-  if (a.flags.has('surgery_soon')) warnings.push('客人一個月內有手術或拔牙安排，請人工確認');
 
   const totalRows = Object.entries(totals).map(([k, v]) => {
     const lim = limits.nutrients[k];
