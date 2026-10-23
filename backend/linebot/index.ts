@@ -359,7 +359,7 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
   const q = QS.find((x) => x.id === s.cur)!;
   const n = QS.filter((x) => isShown(x, s.answers)).indexOf(q) + 1;
   const total = QS.filter((x) => isShown(x, s.answers)).length;
-  const text = `（${n}/${total}）${q.text}${q.hint ? `\n${q.hint}` : ""}${q.type === "multi" ? `\n${q.max ? `最多選 ${q.max} 項，` : ""}可以複選：點選項加入、再點一次取消，選好請按選單最下面的「完成」。` : ""}`;
+  const text = `（${n}/${total}）${q.text}${q.hint ? `\n${q.hint}` : ""}${q.type === "multi" ? `\n${q.max ? `最多選 ${q.max} 項。` : ""}點選項加入、再點一次取消，選好請按選單最下面的「完成」。` : ""}`;
   const back = s.history.length ? [{ label: "‹ 上一題", data: "back" }] : [];
   const messages: unknown[] = [];
   if (notice) messages.push({ type: "text", text: notice });
@@ -597,7 +597,7 @@ async function setupHome(a: { key: string; x: number; y: number; w: number; h: n
     ? { type: "uri", uri: LIFF_URL }
     : { type: "postback", data: `home|${k}`, displayText: k === "quiz" ? "開始問卷" : "我的組合" };
   const created = await line("/v2/bot/richmenu", "POST", {
-    size: { width: 2500, height: 843 }, selected: false, name: "home", chatBarText: "主選單",
+    size: { width: 2500, height: 1120 }, selected: false, name: "home", chatBarText: "主選單",
     areas: a.map((x) => ({ bounds: { x: x.x, y: x.y, width: x.w, height: x.h }, action: act(x.key) })),
   });
   const img = await fetch(`${ASSET_BASE}home.png`);
