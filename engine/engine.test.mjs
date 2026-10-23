@@ -193,6 +193,14 @@ test('專屬報告：重點取分數前三名並引用客人的答案', () => {
   for (const f of r.focus) { assert.ok(f.label && f.label !== f.tag); assert.ok(f.because.length >= 1); }
 });
 
+test('專屬報告：依據句不重複，也不放「你想多照顧」', () => {
+  const ans = { ...base, focus: ['sleep', 'stress'], alcohol: 'often', caffeine: '3plus' };
+  const r = buildReport(buildPack(ans, data), ans, data);
+  const all = r.focus.flatMap(f => f.because);
+  assert.equal(new Set(all).size, all.length, JSON.stringify(r.focus));
+  assert.ok(all.every(t => !t.startsWith('你想多照顧')));
+});
+
 test('專屬報告：已在吃的品項會列為已避開，沒有就不列', () => {
   const none = buildReport(buildPack(base, data), base, data);
   assert.deepEqual(none.avoided, []);
