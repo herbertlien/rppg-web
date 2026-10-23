@@ -57,10 +57,14 @@ async function hasConsent(uid: string): Promise<boolean> {
 const itemById = (id: string) => DATA.items.items.find((i: { id: string }) => i.id === id);
 
 // 核准前用目前的資料重新判斷能不能出貨，不看當初存下的結果
+// 測試模式：Supabase 函式秘密 TEST_APPROVE=1 時，略過「南都確認」與「藥師核定」兩項（劑量或禁忌錯誤仍會擋）。上線給真實客人前必須刪掉這個秘密
+const TEST_APPROVE = Deno.env.get("TEST_APPROVE") === "1";
+
 function approveBlockers(itemIds: string[]): string[] {
   const out: string[] = [];
   const check = checkPack(itemIds, DATA);
   out.push(...check.errors);
+  if (TEST_APPROVE) return out;
   const pending = itemIds.map(itemById).filter((i) => i && i.status !== "confirmed").map((i) => i.name);
   if (pending.length) out.push(`尚未由南都確認：${pending.join("、")}`);
   if (!DATA.items.pharmacistApproved) out.push("品項資料尚未經藥師核定");
@@ -114,7 +118,7 @@ Deno.serve(async (req) => {
     if (b.action === "review_check") {
       if (!admin) return reply({ error: "forbidden" }, 403);
       const ids = Array.isArray(b.itemIds) ? b.itemIds.map(String) : [];
-      return reply({ ...checkPack(ids, DATA), blockers: approveBlockers(ids) });
+      return reply({ ...checkPack(ids, DATA), blockers: approveBlockers(ids), testMode: TEST_APPROVE });
     }
 
     if (b.action === "review_decide") {
@@ -135,7 +139,7 @@ Deno.serve(async (req) => {
         status: decision,
         item_ids: ids,
         reviewed_at: new Date().toISOString(),
-        review_note: String(b.note ?? "").slice(0, 500) || null,
+        review_note: ((String(b.note ?? "") + (decision === "approved" && TEST_APPROVE ? " [測試模式核准]" : "")).trim().slice(0, 500)) || null,
       }).eq("id", packId).eq("status", "needs_review");
       if (up.error) throw up.error;
       return reply({ ok: true });

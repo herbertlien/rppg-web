@@ -30,3 +30,7 @@
 - Webhook URL：`https://<project>.supabase.co/functions/v1/linebot`，在 LINE Developers 的 Messaging API 頁設定並開啟「Use webhook」。
 - 單選題用選單圖；複選題用快速回覆（可即時打勾）；每題有「上一題」。
 - 測試：本機 Postgres + PostgREST，LINE API 用模擬回應（見 PR 說明）。
+
+### 測試用核准（TEST_APPROVE）
+
+南都的資料還沒確認、藥師還沒核定時，審核頁的「核准」會被擋住。內部測試時，在 Supabase 的 `intake` 函式加一個秘密 `TEST_APPROVE`，值填 `1`，就會略過這兩項檢查（劑量與禁忌的錯誤仍會擋），審核頁會顯示「【測試模式】」，核准的備註會自動加上「[測試模式核准]」。**上線給真實客人前必須刪掉這個秘密。**
