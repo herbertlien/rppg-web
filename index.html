@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Deerly 量心率</title>
+<title>Deerly 今日電量</title>
 <style>
   :root{--bg:#faf8f5;--fg:#222;--mut:#777;--ac:#2f7d5b;--card:#fff}
   @media (prefers-color-scheme:dark){:root{--bg:#161616;--fg:#eee;--mut:#999;--ac:#5cc79a;--card:#222}}
@@ -31,7 +31,8 @@
   .hrbox{text-align:center;padding:8px 0}
   .hrnum{font-size:72px;font-weight:700;line-height:1;color:var(--ac)}
   .hrunit{font-size:16px;color:var(--mut)}
-  .cmp{font-size:17px;margin-top:8px}
+  .watchrow{display:flex;gap:8px}.watchrow input{flex:1;min-width:0;font-size:16px;padding:8px;border:1px solid #d9d2c5;border-radius:8px}.watchrow button{width:auto;padding:8px 16px}
+.cmp{font-size:17px;margin-top:8px}
   .bat{margin-top:14px;text-align:left}
   .batbar{height:14px;border-radius:7px;background:rgba(127,127,127,.25);overflow:hidden;margin:6px 0}
   .batbar div{height:100%;background:var(--ac);width:0;transition:width .8s}
@@ -49,7 +50,7 @@
 </style>
 </head>
 <body>
-<h1>量心率</h1>
+<h1>今日電量</h1>
 <p class="mut" id="intro">請在明亮、均勻的光線下，臉對著前鏡頭，手機放穩，30 秒內不要說話或大幅移動。</p>
 <div class="box"><video id="v" playsinline muted></video><canvas id="ov"></canvas><div id="ovtxt" hidden></div><div id="qc" hidden><span id="qf"></span><span id="ql"></span><span id="qm"></span></div></div>
 <button id="go">開始（會要求使用前鏡頭）</button>
@@ -65,7 +66,11 @@
     <div class="mut" style="margin-top:8px">昨晚睡得如何？（會微調電量）</div>
     <div class="chips" id="sleepChips"><button data-v="good">不錯</button><button data-v="ok">普通</button><button data-v="bad">不太好</button></div>
   </div>
-  <div class="mut" id="watchTip" style="margin-top:10px" hidden>想驗證準不準？量測時請戴著手錶，同時看手錶心率（這次是 30 秒平均，和手錶瞬間數字差幾下是正常的）。</div>
+  <div id="watchTip" style="margin-top:10px" hidden>
+    <div class="mut" style="margin-bottom:6px">電量是和你自己的平常比較；心率是這次 30 秒的平均。想知道準不準？可以對照手錶（選填，只用來驗證準確度）：</div>
+    <div class="watchrow"><input id="watchIn" type="number" inputmode="numeric" min="30" max="220" placeholder="手錶顯示幾下？"> <button id="watchBtn">對照</button></div>
+    <div class="mut" id="watchRes" style="margin-top:6px"></div>
+  </div>
 </div>
 <div class="card" id="relax" hidden>
   <b>一分鐘放鬆挑戰</b>
@@ -280,7 +285,7 @@ function batteryOf(bpm, base) { return Math.max(5, Math.min(100, Math.round(70 -
 function renderCompare(r) {
   $('cmp').textContent = ''; $('bat').hidden = true;
   if (r.quality < QMIN) return;
-  $('watchTip').hidden = false;
+  $('watchTip').hidden = false; $('watchRes').textContent = ''; $('watchIn').value = '';
   if (curBase === null) { $('cmp').textContent = '再量幾次（累積 3 次），就能比較你的平常心率，並解鎖「今日電量」。'; return; }
   const d = Math.round(r.bpm - curBase);
   $('cmp').textContent = d === 0 ? '和你平常差不多（平常約 ' + Math.round(curBase) + '）' : '比你平常' + (d > 0 ? '高' : '低') + ' ' + Math.abs(d) + ' 下（平常約 ' + Math.round(curBase) + '）';
@@ -413,6 +418,16 @@ async function api(action, extra = {}) {
   return { status: res.status, body };
 }
 
+$('watchBtn').onclick = async () => {
+  const w = Math.round(Number($('watchIn').value));
+  if (!lastResult || !(w >= 30 && w <= 220)) { $('watchRes').textContent = '請輸入 30–220 之間的數字'; return; }
+  const d = Math.round(lastResult.bpm) - w, ad = Math.abs(d);
+  $('watchRes').textContent = '手錶 ' + w + '，我們 ' + Math.round(lastResult.bpm) + '，' + (ad === 0 ? '一樣' : '差 ' + ad + ' 下') + '。手錶是瞬間值、我們是 30 秒平均，小差距很正常。';
+  if (cloud.on && cloud.consented && !relaxMode) {
+    const r = await api('watch', { watchBpm: w });
+    $('watchRes').textContent += r.status === 200 ? '已匿名記錄，幫我們驗證準確度，謝謝。' : '（這次沒能記錄）';
+  }
+};
 const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length ? (s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2) : null; };
 
 function renderHist(scans) {
