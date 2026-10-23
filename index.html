@@ -88,6 +88,7 @@
 <div id="dock" hidden>
   <div class="mut">心率只是讓你認識自己，組合由問卷回答決定</div>
   <button id="ctaBtn">下一步：2 分鐘問卷，整理你的每日組合 ›</button>
+  <button id="chatBtn" class="ghost" hidden>回聊天室</button>
 </div>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
@@ -418,7 +419,13 @@ onScanDone = async () => {
   const msg = r.status === 200 ? '已儲存' : r.status === 429 ? '量測太頻繁，未儲存' : r.status === 401 ? '登入已過期，未儲存，請關閉後重開' : '儲存失敗（' + r.status + '）';
   $('st').textContent += '；' + msg;
   if (r.status === 200) refresh();
+  // 在聊天室裡開啟時，替使用者在聊天室留一句「我量好了」，官方帳號會回覆結果。需要 LIFF 開啟 chat_message.write 權限，沒有就略過
+  if (r.status === 200 && lastResult.quality >= QMIN && liff.isInClient()) {
+    $('chatBtn').hidden = false;
+    try { await liff.sendMessages([{ type: 'text', text: '我量好了' }]); } catch (e) { /* 沒有權限或不在聊天室 */ }
+  }
 };
+$('chatBtn').onclick = () => { try { liff.closeWindow(); } catch { /* 非 LINE 內 */ } };
 
 $('ctaBtn').onclick = () => { location.href = './quiz/'; };
 $('agree').onchange = () => { $('consentBtn').disabled = !$('agree').checked; };

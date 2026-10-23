@@ -64,6 +64,18 @@ h1 b{color:#2f7d5b}
 <div class="tip">看到這個就點它 ↓</div><div class="arr">▼</div>
 <div class="bar">點這裡作答 ▴</div>`);
 await page.screenshot({ path: new URL('intro.png', out).pathname });
-await browser.close();
+
+// 主選單：三顆大按鈕
+const HW = 2500, HH = 843, hb = [['scan', '量心率', '30 秒，免費'], ['quiz', '每日問卷', '整理你的組合'], ['pack', '我的組合', '看目前的狀態']];
+const hw = Math.floor((HW - 60 * 4) / 3);
+await page.setViewportSize({ width: HW, height: HH });
+await page.setContent(`<!doctype html><meta charset="utf-8"><style>
+body{margin:0;width:${HW}px;height:${HH}px;background:#f4efe8;font-family:"Noto Sans TC","PingFang TC","WenQuanYi Zen Hei",sans-serif;position:relative;overflow:hidden}
+.b{position:absolute;top:60px;height:${HH - 120}px;width:${hw}px;box-sizing:border-box;background:#fff;border:8px solid #2f7d5b;border-radius:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#1f5c42}
+.b b{font-size:130px;font-weight:700}.b i{font-style:normal;font-size:62px;color:#6a7f75;margin-top:24px}
+</style>` + hb.map((h, i) => `<div class="b" style="left:${60 + i * (hw + 60)}px"><b>${h[1]}</b><i>${h[2]}</i></div>`).join(''));
+await page.screenshot({ path: new URL('home.png', out).pathname });
+areas.home = hb.map((h, i) => ({ key: h[0], x: 60 + i * (hw + 60), y: 0, w: hw + 60, h: HH }));
 writeFileSync(new URL('areas.json', out), JSON.stringify({ version: data.version, areas }, null, 2));
+await browser.close();
 console.log('產生', single.length, '張，題目版本', data.version);
