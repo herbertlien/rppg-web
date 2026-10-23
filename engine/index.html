@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Deerly 問卷預覽</title>
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./style.css?v=202610230506">
 </head>
 <body>
 <p class="mut">問卷預覽（內部測試用，不儲存資料，配方是暫定數字）</p>
@@ -12,10 +12,19 @@
 <div id="out"></div>
 
 <script type="module">
-import { buildPack, validateData } from './engine.js';
-import { el, runSurvey } from './survey.js';
+// 版本檢查：LINE 會快取舊網頁，發現有新版就帶版本號重新載入一次
+const V = '202610230506';
+{
+  const u = new URL(location.href);
+  try {
+    const { v } = await fetch(`./engine/version.json`, { cache: 'no-store' }).then(r => r.json());
+    if (v !== V && u.searchParams.get('_v') !== v) { u.searchParams.set('_v', v); location.replace(u); await new Promise(() => {}); }
+  } catch { /* 讀不到版本檔就用目前的版本 */ }
+}
+const { buildPack, validateData } = await import(`./engine.js?v=${V}`);
+const { el, runSurvey } = await import(`./survey.js?v=${V}`);
 
-const load = f => fetch(`./data/${f}.json`, { cache: 'no-store' }).then(r => r.json());
+const load = f => fetch(`./data/${f}.json?v=${V}`).then(r => r.json());
 const [items, limits, questions, claims] = await Promise.all(['items', 'limits', 'questions', 'claims'].map(load));
 const data = { items, limits, questions, claims };
 const $ = id => document.getElementById(id);

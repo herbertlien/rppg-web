@@ -404,6 +404,11 @@ Deno.serve(async (req) => {
         return reply({ error: "too_fast" }, 429);
       }
 
+      // 網頁和後端的題目版本不同（例如網頁還是快取的舊版）時，請客人重開，避免用錯題目算配方
+      if (b.questionsVersion !== DATA.questions.version) {
+        return reply({ error: "outdated", expected: DATA.questions.version }, 409);
+      }
+
       const result = buildPack(answers, DATA);
       if (result.status === "invalid") return reply({ error: "invalid", errors: result.errors }, 400);
       // 不接單的情況不保存答案（含懷孕、用藥等敏感資料），只回覆說明

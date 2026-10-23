@@ -13,3 +13,5 @@
 南都資料到了以後，只要改 `data/items.json`（每顆成分、`dailyCapsules`、`status: "confirmed"`），藥師核定後把 `pharmacistApproved` 改成 `true`。
 
 相關頁面：`quiz/`（客人填問卷，需從 LINE 開啟）、`review/`（審核頁，只有 ADMIN_LINE_SUBS 裡的帳號能用）。後端見 `backend/README.md`。
+
+**改了網頁或資料檔之後一定要執行 `node engine/stamp.mjs`**：更新版本號。LINE 內建瀏覽器會快取舊檔，頁面發現版本號不同時會自動重新載入新版。後端也會比對題目版本，不同就請客人重開，避免用錯題目算配方。
