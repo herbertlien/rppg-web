@@ -238,7 +238,7 @@ const DATA: any = {"items":{"_note":"品項資料。status：confirmed＝成分�
 
 const LINE_CHANNEL_ID = "2012160129";
 const ALLOWED_ORIGIN = "https://herbertlien.github.io";
-const CONSENT_VERSION = "intake-v0";
+const CONSENT_VERSION = "intake-v1";
 // 審核者的 LINE 使用者 ID，多個用逗號分隔。在 Supabase 的 Edge Function Secrets 設定 ADMIN_LINE_SUBS。
 const ADMINS = (Deno.env.get("ADMIN_LINE_SUBS") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -314,10 +314,30 @@ Deno.serve(async (req) => {
     if (b.action === "review_list") {
       if (!admin) return reply({ error: "forbidden" }, 403);
       const r = await db.from("packs")
-        .select("id,created_at,status,item_ids,result,review_note,intakes(answers,questions_version)")
+        .select("id,user_id,created_at,status,item_ids,result,review_note,intakes(answers,questions_version)")
         .eq("status", "needs_review").order("created_at", { ascending: true }).limit(50);
       if (r.error) throw r.error;
-      return reply({ packs: r.data, items: DATA.items.items.map((i: { id: string; name: string; enabled: boolean }) => ({ id: i.id, name: i.name, enabled: i.enabled })) });
+      // 附上客人近 28 天的心率摘要（只有量測數字，沒有影像）
+      const since = new Date(Date.now() - 28 * 864e5).toISOString();
+      const packs = [];
+      for (const p of r.data) {
+        const sc = await db.from("scans").select("scanned_at,bpm,quality")
+          .eq("user_id", p.user_id).gte("scanned_at", since).gte("quality", 0.35).order("scanned_at", { ascending: false }).limit(100);
+        if (sc.error) throw sc.error;
+        const bpms = (sc.data ?? []).map((x: { bpm: number }) => Number(x.bpm)).sort((a: number, b: number) => a - b);
+        const m = bpms.length >> 1;
+        const { user_id: _u, ...rest } = p;
+        packs.push({
+          ...rest,
+          scanSummary: bpms.length ? {
+            n: bpms.length,
+            median: Math.round(bpms.length % 2 ? bpms[m] : (bpms[m - 1] + bpms[m]) / 2),
+            lastBpm: Math.round(Number(sc.data![0].bpm)),
+            lastAt: sc.data![0].scanned_at,
+          } : null,
+        });
+      }
+      return reply({ packs, items: DATA.items.items.map((i: { id: string; name: string; enabled: boolean }) => ({ id: i.id, name: i.name, enabled: i.enabled })) });
     }
 
     if (b.action === "review_check") {

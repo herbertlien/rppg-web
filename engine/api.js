@@ -10,6 +10,18 @@ export async function login() {
   return true;
 }
 
+// 讀取掃描頁存的心率紀錄（失敗或沒有紀錄就回傳空陣列）
+export async function recentScans() {
+  try {
+    const r = await fetch('https://gokvjcwjkhhnmckbbyxl.supabase.co/functions/v1/scan', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'list', idToken: liff.getIDToken() }),
+    });
+    const b = await r.json();
+    return r.status === 200 && Array.isArray(b.scans) ? b.scans : [];
+  } catch { return []; }
+}
+
 export async function call(action, extra = {}) {
   const idToken = liff.getIDToken();
   const r = await fetch(API, {

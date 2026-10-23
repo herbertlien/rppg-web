@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Deerly 生活習慣問卷</title>
-<link rel="stylesheet" href="../engine/style.css?v=202610230506">
+<link rel="stylesheet" href="../engine/style.css?v=202610230733">
 </head>
 <body>
 <h1 id="title">Deerly 生活習慣問卷</h1>
@@ -18,6 +18,7 @@
     <li>你的回答會存在我們的資料庫，只有 Deerly 負責審核配方的人看得到，不會提供給第三方。</li>
     <li>如果依你的回答我們不適合提供服務，這次的回答不會被保存。</li>
     <li>配方由固定規則整理，再由人工確認後才會通知你；這不是醫療建議，有健康疑慮請諮詢醫師。</li>
+    <li>如果你也用過心率量測，量測的數字（心率與時間，沒有影像）會一起給審核者參考。</li>
     <li>你隨時可以在本頁最下方刪除你的所有資料。</li>
   </ul>
   <button id="agree" class="go">我同意，開始問卷</button>
@@ -31,7 +32,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
 // 版本檢查：LINE 會快取舊網頁，發現有新版就帶版本號重新載入一次
-const V = '202610230506';
+const V = '202610230733';
 {
   const u = new URL(location.href);
   try {
@@ -40,7 +41,7 @@ const V = '202610230506';
   } catch { /* 讀不到版本檔就用目前的版本 */ }
 }
 const { el, runSurvey } = await import(`../engine/survey.js?v=${V}`);
-const { login, call } = await import(`../engine/api.js?v=${V}`);
+const { login, call, recentScans } = await import(`../engine/api.js?v=${V}`);
 
 const $ = id => document.getElementById(id);
 const status = t => { $('status').textContent = t; };
@@ -118,8 +119,11 @@ function homeVisible(on) {
 async function start() {
   status('');
   homeVisible(false);
+  // 有量過心率就接著上次的結果打招呼；配方只由問卷回答決定，心率不參與
+  const last = (await recentScans()).find(s => s.quality >= 0.35);
+  const hello = last ? `嗨，我是下班鹿。你最近一次量到的心率是 ${Math.round(last.bpm)}（${new Date(last.scanned_at).toLocaleDateString('zh-TW')}）。` : '嗨，我是下班鹿。';
   const answers = await runSurvey($('chat'), questions, claims.rejectMessages, {
-    intro: '嗨，我是下班鹿。接下來問你幾個關於作息和飲食的問題，大約兩分鐘。',
+    intro: hello + '接下來問你幾個關於作息和飲食的問題，大約兩分鐘，我們會整理出適合你的每日組合。',
   });
   $('chat').replaceChildren();
   homeVisible(true);
