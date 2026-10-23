@@ -6,7 +6,7 @@ const pw = await import(process.env.PLAYWRIGHT || 'playwright'); const chromium 
 // 視覺基調集中在這裡，之後換品牌只改這一組
 const C = { bg: '#F6F1EA', card: '#FFFFFF', ink: '#1E2A24', mut: '#7A8780', ac: '#2F7D5B', acDark: '#1F5C42', soft: '#E4EDE7', track: '#E3DACB' };
 const FONT = '"Noto Sans TC","PingFang TC","WenQuanYi Zen Hei",sans-serif';
-const W = 2500, H = 1686, HEAD = 520, HEAD_MULTI = 420, PAD = 80, GAP = 48;
+const W = 2500, H = 1686, PAD = 80, GAP = 48;
 const data = JSON.parse(readFileSync(new URL('./data/questions.json', import.meta.url), 'utf8'));
 const out = new URL('../menus/', import.meta.url);
 mkdirSync(out, { recursive: true });
@@ -14,38 +14,55 @@ mkdirSync(out, { recursive: true });
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 const DONE_H = 170;
-// 選項排版：3 個以內單欄，4–8 個雙欄，9 個以上三欄；複選題底部多一條「完成」
-function layout(n, multi = false) {
-  const HEAD_ = multi ? HEAD_MULTI : HEAD;
-  const cols = n <= 3 ? 1 : n <= 8 ? 2 : 3, rows = Math.ceil(n / cols);
+// 題目字級：15 字以內一行用大字，其餘折成兩行用同一個較大的字級，全部題目看起來一致
+const QTOP = 195;
+function qinfo(text) {
+  const qfs = text.length <= 15 ? 150 : 125;
+  const lines = Math.ceil(text.length * qfs / (W - PAD * 2));
+  return { qfs, head: Math.round(QTOP + lines * qfs * 1.2 + 40) };
+}
+
+// 選項排版：依欄數排；複選題底部多一條「完成」
+function layout(n, cols, head, multi = false) {
+  const rows = Math.ceil(n / cols);
   const bottom = multi ? DONE_H + GAP : 0;
   const bw = (W - PAD * 2 - GAP * (cols - 1)) / cols;
-  const bh = (H - HEAD_ - PAD - bottom - GAP * (rows - 1)) / rows;
+  const bh = (H - head - PAD - bottom - GAP * (rows - 1)) / rows;
   return Array.from({ length: n }, (_, i) => ({
     x: Math.round(PAD + (i % cols) * (bw + GAP)),
-    y: Math.round(HEAD_ + Math.floor(i / cols) * (bh + GAP)),
+    y: Math.round(head + Math.floor(i / cols) * (bh + GAP)),
     w: Math.round(bw), h: Math.round(bh),
   }));
 }
 
 // 估算字寬：中文約 1 個字級寬，英數與符號約 0.6
 const wlen = t => [...t].reduce((a, c) => a + (c.charCodeAt(0) > 255 ? 1 : 0.6), 0);
-// 手機上 2500 px 寬的圖約縮成 390 pt，字級 150 px 約等於 23 pt。選項字盡量大；一行放不下就允許折成兩行，不要縮到看不清楚
+// 手機上 2500 px 寬的圖約縮成 390 pt，字級 150 px 約等於 23 pt。字盡量大；一行放不下就允許折成兩行
 function optionFont(q, boxes, side) {
   const n = q.options.length, longest = Math.max(...q.options.map(o => wlen(o.chip || o.label)));
-  const base = n <= 3 ? 190 : n <= 4 ? 170 : n <= 8 ? 150 : 110;
+  const base = n <= 3 ? 190 : n <= 8 ? 150 : 120;
   const room = boxes[0].w - side, h = boxes[0].h;
-  const fs1 = Math.min(base, Math.floor(room / (longest * 1.04)));
+  const fs1 = Math.min(base, Math.floor(room / (longest * 1.04)), Math.floor((h - 40) / 1.3));
   const fs2 = Math.min(base, Math.floor(room / (Math.ceil(longest / 2) * 1.04)), Math.floor((h - 50) / 2.6));
   return fs2 > fs1 * 1.15 ? { fs: fs2, lines: 2 } : { fs: Math.max(72, fs1), lines: 1 };
 }
+// 單欄、雙欄、三欄都試一次，取字最大的（字一樣大就選欄數多的）
+function bestLayout(q, head, multi) {
+  const side = multi ? 120 : 160, n = q.options.length;
+  const choices = n <= 3 ? [1] : n <= 6 ? [1, 2] : n <= 9 ? [2, 3] : [3];
+  let best = null;
+  for (const cols of choices) {
+    const boxes = layout(n, cols, head, multi);
+    const o = optionFont(q, boxes, side);
+    const score = o.fs * (o.lines === 2 ? 0.85 : 1);   // 折行的版本扣分，同分取較少欄
+    if (!best || score > best.score * 1.02) best = { cols, boxes, fs: o.fs, score };
+  }
+  return best;
+}
 
-function html(q, boxes, idx, total) {
+function html(q, boxes, fs, idx, total, qfs, title) {
   const multi = q.type === 'multi';
   const lab = o => o.chip || o.label;
-  const side = multi ? 120 : 220;
-  const { fs } = optionFont(q, boxes, side);
-  const qfs = q.text.length <= 12 ? 150 : q.text.length <= 16 ? 130 : q.text.length <= 20 ? 108 : 92;
   const btn = (o, b) => `<div class="b" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px"><span style="font-size:${fs}px">${esc(lab(o))}</span>${multi ? '' : `<i style="font-size:${Math.round(fs * 0.9)}px">›</i>`}</div>`;
   const done = multi ? `<div class="done" style="left:${PAD}px;top:${H - PAD - DONE_H}px;width:${W - PAD * 2}px;height:${DONE_H}px">選好了，按這裡完成 ✔</div>` : '';
   return `<!doctype html><meta charset="utf-8"><style>
@@ -54,11 +71,11 @@ function html(q, boxes, idx, total) {
   .n{position:absolute;right:${PAD}px;top:44px;font-size:68px;color:${C.mut};font-weight:700}
   .bar{position:absolute;left:${PAD}px;right:${PAD}px;top:150px;height:22px;border-radius:11px;background:${C.track}}
   .bar div{height:100%;border-radius:11px;background:${C.ac};width:${Math.round(idx / total * 100)}%}
-  .q{position:absolute;left:${PAD}px;right:${PAD}px;top:215px;font-size:${qfs}px;font-weight:900;color:${C.ink};line-height:1.2}
+  .q{position:absolute;left:${PAD}px;right:${PAD}px;top:${QTOP}px;font-size:${qfs}px;font-weight:900;color:${C.ink};line-height:1.2}
   .b{position:absolute;box-sizing:border-box;background:${C.card};border:8px solid ${C.ac};border-radius:${multi ? 56 : 72}px;box-shadow:0 14px 0 ${C.soft};display:flex;align-items:center;justify-content:center;text-align:center;padding:0 ${multi ? 36 : 130}px 0 ${multi ? 36 : 60}px;color:${C.acDark};font-weight:700;line-height:1.25}
   .b i{position:absolute;right:56px;font-style:normal;color:${C.ac};font-weight:400}
   .done{position:absolute;box-sizing:border-box;background:${C.ac};border-radius:72px;box-shadow:0 14px 0 ${C.acDark};display:flex;align-items:center;justify-content:center;color:#fff;font-size:100px;font-weight:800;letter-spacing:4px}
-  </style><div class="brand">Deerly</div><div class="n">${idx} / ${total}</div><div class="bar"><div></div></div><div class="q">${esc(q.text)}</div>
+  </style><div class="brand">Deerly</div><div class="n">${idx} / ${total}</div><div class="bar"><div></div></div><div class="q">${esc(title)}</div>
   ${q.options.map((o, i) => btn(o, boxes[i])).join('')}${done}`;
 }
 
@@ -68,8 +85,10 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME || un
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
 for (const q of data.questions) {
   const multi = q.type === 'multi';
-  const boxes = layout(q.options.length, multi);
-  await page.setContent(html(q, boxes, data.questions.indexOf(q) + 1, total));
+  const title = multi ? q.text.replace(/可以複選。?$/, '') : q.text;
+  const { qfs, head } = qinfo(title);
+  const { boxes, fs } = bestLayout(q, head, multi);
+  await page.setContent(html(q, boxes, fs, data.questions.indexOf(q) + 1, total, qfs, title));
   await page.screenshot({ path: new URL(`${q.id}.png`, out).pathname });
   areas[q.id] = q.options.map((o, i) => ({ value: o.value, ...boxes[i] }));
   if (multi) areas[q.id].push({ value: '__done', x: PAD, y: H - PAD - DONE_H, w: W - PAD * 2, h: DONE_H });

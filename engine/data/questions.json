@@ -1,6 +1,6 @@
 {
   "_note": "問卷題目。safety＝安全題，一定要答。reject＝不接單；flags＝個人禁用旗標；warn＝給審核者的提醒；needs＝需求加分；showIf＝只在前面某題選了指定選項時才問；reason＝理由句型，{label} 換成選項文字（選項上也可直接寫整句）；short＝送出前總覽用的短標題；why＝這題存在的理由（只給內部看）。",
-  "version": "questions-2026-10-23c",
+  "version": "questions-2026-10-23e",
   "questions": [
     {
       "id": "age",
@@ -151,7 +151,8 @@
         {
           "value": "treatment",
           "label": "其他正在看醫師治療中的疾病",
-          "reject": "treatment"
+          "reject": "treatment",
+          "chip": "其他治療中疾病"
         },
         {
           "value": "surgery",
@@ -159,7 +160,8 @@
           "flags": [
             "surgery_soon"
           ],
-          "warn": "客人一個月內有手術或拔牙安排，請人工確認"
+          "warn": "客人一個月內有手術或拔牙安排，請人工確認",
+          "chip": "近期手術或拔牙"
         },
         {
           "value": "none",
@@ -343,23 +345,28 @@
       "options": [
         {
           "value": "0",
-          "label": "目前沒有花"
+          "label": "目前沒有花",
+          "chip": "目前沒花"
         },
         {
           "value": "lt500",
-          "label": "500 元以下"
+          "label": "500 元以下",
+          "chip": "500 以下"
         },
         {
           "value": "500_1000",
-          "label": "500–1,000 元"
+          "label": "500–1,000 元",
+          "chip": "500–1,000"
         },
         {
           "value": "1000_2000",
-          "label": "1,000–2,000 元"
+          "label": "1,000–2,000 元",
+          "chip": "1,000–2,000"
         },
         {
           "value": "2000plus",
-          "label": "2,000 元以上"
+          "label": "2,000 元以上",
+          "chip": "2,000 以上"
         }
       ]
     },
