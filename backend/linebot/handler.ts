@@ -227,6 +227,50 @@ function reportFlex(r: Report) {
   return { type: "flex", altText: "你的 Deerly 專屬報告", contents: { type: "carousel", contents: bubbles } };
 }
 
+// ---- 新版卡片（預覽中，只有管理者能用指令看；正式流程還沒換）----
+// 問卷答完：封面、個人化依據、整理了什麼（不含品項）、下一步
+function reportFlexV2(r: Report) {
+  const cover = bubble("給你的專屬報告", [
+    T("依你這次的回答整理，不含任何功效說法。", { size: "md", color: "#7A8780" }),
+    ...(r.focus.length ? [T("這次的重點", { size: "sm", weight: "bold", color: "#2F7D5B" }),
+      ...r.focus.map((f, i) => T(`${i + 1}　${f.label}`, { size: "lg", weight: "bold", color: "#1F5C42" }))] : []),
+    T("向左滑看完整內容 ›", { size: "sm", color: "#7A8780" }),
+  ]);
+  const rest = (reportFlex(r).contents as { contents: unknown[] }).contents;
+  return { type: "flex", altText: "你的 Deerly 專屬報告", contents: { type: "carousel", contents: [cover, ...rest] } };
+}
+
+// 核准後：本月組合（每項一張，附原因）
+function packFlex(tier: number, items: { name: string; dailyCapsules: number | null; reason: string }[]) {
+  const head = bubble("本月組合", [
+    T(`每天 ${tier} 項，一包整理好。`, { size: "lg", weight: "bold", color: "#1F5C42" }),
+    T("每項都附上為什麼放進來，向左滑看。每個月我們會依你的回答調整一次，並寫下調整的原因。", { size: "md", color: "#7A8780" }),
+  ]);
+  const cards = items.map((it, i) => bubble(`${i + 1}　${it.name}`, [
+    ...(it.dailyCapsules ? [T(`每天 ${it.dailyCapsules} 顆`, { size: "md", color: "#1E2A24" })] : []),
+    T(it.reason || "依你的回答放入", { size: "md", color: "#7A8780" }),
+  ]));
+  const last = bubble("下一步", [
+    T("看完整的組合、過去的報告和量測紀錄。", { size: "md", color: "#1E2A24" }),
+  ], { type: "box", layout: "vertical", paddingAll: "16px", contents: [
+    { type: "button", style: "primary", color: "#2F7D5B", height: "md", action: { type: "uri", label: "打開我的 Deerly", uri: `${LIFF_URL}/me/` } },
+  ] });
+  return { type: "flex", altText: "你的 Deerly 本月組合", contents: { type: "carousel", contents: [head, ...cards, last] } };
+}
+
+// 管理者預覽用的固定測試資料：真的跑一次規則引擎，確保卡片內容和正式一致
+const PREVIEW_ANSWERS = {
+  age: "30_34", sex: "female", pregnancy: "no", medication: "no", conditions: ["none"], allergy: ["none"], diet: "omni",
+  supplements: ["b"], spend: "500_1000", focus: ["sleep", "stress"], sleep_hours: "lt6", sleep_quality: "poor", stress: "high",
+  caffeine: "3plus", alcohol: "1_2", meals_out: "most", veg: "0_1", bowel: "regular", exercise: "0", tier: "basic",
+};
+function previewCards(kind: "report" | "pack") {
+  const result = buildPack(PREVIEW_ANSWERS, DATA);
+  const note = { type: "text", text: "（預覽：固定測試資料，只有管理者看得到）" };
+  if (kind === "report") return [note, reportFlexV2(buildReport(result, PREVIEW_ANSWERS, DATA))];
+  return [note, packFlex(result.tier, result.items)];
+}
+
 // 套用一個答案後往下走
 async function advance(sub: string, replyToken: string, s: Session, q: Q, notice?: string) {
   const rejectOpt = q.options.find((o) => o.reject && [].concat(s.answers[q.id] as never).includes(o.value as never));
@@ -382,6 +426,7 @@ async function onText(sub: string, replyToken: string, text: string) {
   if (/^我量好了/.test(text.trim())) return onScanDone(sub, replyToken);
   if (/^(我的報告|報告|看報告)$/.test(text.trim())) return showReport(sub, replyToken);
   if (text.trim() === "我的組合") return showPack(sub, replyToken);
+  if (ADMINS.includes(sub) && /^預覽(報告|組合)$/.test(text.trim())) return reply(replyToken, previewCards(text.trim() === "預覽報告" ? "report" : "pack"));
   if (text.trim() === "上一題") return onPostback(sub, replyToken, "back");
   const uid = await findUser(sub, false);
   const s = uid ? await loadSession(uid) : null;
