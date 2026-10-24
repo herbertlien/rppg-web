@@ -258,6 +258,7 @@ export function buildReport(result, answers, data) {
   const tip = (claims.tips || []).find(t => Object.entries(t.when).every(([k, v]) => answers[k] === v));
   return {
     focus: result.focus || [],
+    diet: (questions.questions.find(q => q.id === 'diet')?.options.find(o => o.value === answers.diet) || {}).label || null,
     taking,
     tier: result.tier,
     avoided,
