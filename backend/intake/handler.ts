@@ -59,6 +59,28 @@ const itemById = (id: string) => DATA.items.items.find((i: { id: string }) => i.
 // 核准前用目前的資料重新判斷能不能出貨，不看當初存下的結果
 // 測試模式：Supabase 函式秘密 TEST_APPROVE=1 時，略過「南都確認」與「藥師核定」兩項（劑量或禁忌錯誤仍會擋）。上線給真實客人前必須刪掉這個秘密
 const TEST_APPROVE = Deno.env.get("TEST_APPROVE") === "1";
+const LINE_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") ?? "";
+const LIFF_ME = "https://liff.line.me/2012160129-CwL40nTW/me/";
+
+// 通知客人審核結果（每位客人 1 則，用推播額度）。失敗只記錄，不影響審核結果。
+async function notifyDecision(userId: string, decision: "approved" | "returned") {
+  try {
+    if (!LINE_TOKEN) return;
+    const u = await db.from("users").select("line_sub").eq("id", userId).maybeSingle();
+    if (u.error || !u.data?.line_sub) return;
+    const text = decision === "approved"
+      ? `你的 Deerly 組合確認好了。這個月的品項和原因，點這裡看：\n${LIFF_ME}`
+      : "你的組合還需要再調整，我們確認後會再通知你。";
+    const r = await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: { authorization: `Bearer ${LINE_TOKEN}`, "content-type": "application/json" },
+      body: JSON.stringify({ to: u.data.line_sub, messages: [{ type: "text", text }] }),
+    });
+    if (!r.ok) console.error("push failed", r.status, await r.text());
+  } catch (e) {
+    console.error("push error", e);
+  }
+}
 
 function approveBlockers(itemIds: string[]): string[] {
   const out: string[] = [];
@@ -126,7 +148,7 @@ Deno.serve(async (req) => {
       const packId = Number(b.packId);
       const decision = b.decision === "approve" ? "approved" : b.decision === "return" ? "returned" : null;
       if (!Number.isInteger(packId) || !decision) return reply({ error: "input" }, 400);
-      const cur = await db.from("packs").select("status,item_ids").eq("id", packId).maybeSingle();
+      const cur = await db.from("packs").select("status,item_ids,user_id").eq("id", packId).maybeSingle();
       if (cur.error) throw cur.error;
       if (!cur.data) return reply({ error: "not_found" }, 404);
       if (cur.data.status !== "needs_review") return reply({ error: "already_decided" }, 409);
@@ -142,6 +164,7 @@ Deno.serve(async (req) => {
         review_note: ((String(b.note ?? "") + (decision === "approved" && TEST_APPROVE ? " [測試模式核准]" : "")).trim().slice(0, 500)) || null,
       }).eq("id", packId).eq("status", "needs_review");
       if (up.error) throw up.error;
+      await notifyDecision(cur.data.user_id, decision);
       return reply({ ok: true });
     }
 
