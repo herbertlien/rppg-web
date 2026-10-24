@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>我的 Deerly</title>
-<link rel="stylesheet" href="../engine/style.css?v=202610231723">
+<link rel="stylesheet" href="../engine/style.css?v=202610240614">
 <style>
   body{font-size:18px}
   h1{font-size:24px;margin:8px 0 12px}
@@ -41,7 +41,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script type="module">
 // 版本檢查：LINE 會快取舊網頁，發現有新版就帶版本號重新載入一次
-const V = '202610231723';
+const V = '202610240614';
 {
   const u = new URL(location.href);
   try {
@@ -54,6 +54,7 @@ const { login, call } = await import(`../engine/api.js?v=${V}`);
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const QMIN = 0.35;
+const BASEQ = 0.55;
 const fmtDate = s => { const d = new Date(s); return `${d.getMonth() + 1}/${d.getDate()}`; };
 const fmtTime = s => { const d = new Date(s); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -119,7 +120,7 @@ function viewPack(v) {
 function viewRec(v) {
   const ok = me.scans.filter(s => s.quality >= QMIN);
   const c = el('div', 'card');
-  const base = ok.filter(s => Date.now() - new Date(s.scanned_at).getTime() <= 28 * 864e5);
+  const base = me.scans.filter(s => s.quality >= BASEQ).filter(s => Date.now() - new Date(s.scanned_at).getTime() <= 28 * 864e5);
   if (base.length >= 3) {
     c.append(el('div', 'date', '你的平常心率（近 28 天）'), el('div', 'big', `約 ${Math.round(median(base.map(s => s.bpm)))} 次／分`));
   } else {

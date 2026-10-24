@@ -34,8 +34,9 @@
   .watchrow{display:flex;gap:8px}.watchrow input{flex:1;min-width:0;font-size:16px;padding:8px;border:1px solid #d9d2c5;border-radius:8px}.watchrow button{width:auto;padding:8px 16px}
 .cmp{font-size:17px;margin-top:8px}
   .bat{margin-top:14px;text-align:left}
-  .batbar{height:14px;border-radius:7px;background:rgba(127,127,127,.25);overflow:hidden;margin:6px 0}
-  .batbar div{height:100%;background:var(--ac);width:0;transition:width .8s}
+  .batbar{display:flex;gap:6px;margin:6px 0}
+  .batbar i{flex:1;height:14px;border-radius:7px;background:rgba(127,127,127,.25)}
+  .batbar i.on{background:var(--ac)}
   .chips{display:flex;gap:8px;margin-top:6px}
   .chips button{margin:0;padding:8px;font-size:15px;background:none;color:var(--fg);border:1px solid var(--mut)}
   .chips button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
@@ -51,7 +52,7 @@
 </head>
 <body>
 <h1>今日電量</h1>
-<p class="mut" id="intro" style="text-align:center">明亮光線下正對鏡頭、手機放穩，30 秒別說話。<br>影像不會儲存，只留下數字。</p>
+<p class="mut" id="intro" style="text-align:center">先靜坐一分鐘再量。明亮光線下正對鏡頭、手機放穩，30 秒別說話。<br>影像不會儲存，只留下數字。</p>
 <div class="box"><video id="v" playsinline muted></video><canvas id="ov"></canvas><div id="ovtxt" hidden></div><div id="qc" hidden><span id="qf"></span><span id="ql"></span><span id="qm"></span></div></div>
 <button id="go">開始（會要求使用前鏡頭）</button>
 <div class="card">
@@ -61,7 +62,7 @@
   <div class="cmp" id="cmp" style="text-align:center"></div>
   <div class="bat" id="bat" hidden>
     <b>今日電量</b> <span id="batnum"></span>
-    <div class="batbar"><div id="batfill"></div></div>
+    <div class="batbar"><i></i><i></i><i></i></div>
     <div class="mut" id="battxt"></div>
     <div class="mut" style="margin-top:8px">昨晚睡得如何？（會微調電量）</div>
     <div class="chips" id="sleepChips"><button data-v="good">不錯</button><button data-v="ok">普通</button><button data-v="bad">不太好</button></div>
@@ -263,6 +264,7 @@ function liveQuality(lm, rgb) {
     : !move[1] ? '請保持不動，不要說話' : '';
 }
 const QMIN = 0.35;   // 低於此品質不顯示數字
+const BASEQ = 0.55;  // 算「平常心率」只用訊號良好的量測
 function show(r, final) {
   if (!final) { $('hr').textContent = '…'; $('hrunit').textContent = ''; $('q').textContent = '量測中，完成後顯示結果（訊號品質 ' + (r.quality > .55 ? '良好' : r.quality > QMIN ? '普通' : '偏弱') + '）'; return; }
   if (r.quality < QMIN) {
@@ -277,7 +279,7 @@ function show(r, final) {
 // ===== 跟自己比、今日電量 =====
 function baselineOf(scans) {
   const cutoff = Date.now() - 28 * 864e5;
-  const ok = (scans || []).filter(s => s.quality >= QMIN && new Date(s.scanned_at).getTime() >= cutoff);
+  const ok = (scans || []).filter(s => s.quality >= BASEQ && new Date(s.scanned_at).getTime() >= cutoff);
   return ok.length >= 3 ? median(ok.map(s => s.bpm)) : null;
 }
 let sleepAdj = 0, curBase = null;
@@ -286,14 +288,15 @@ function renderCompare(r) {
   $('cmp').textContent = ''; $('bat').hidden = true;
   if (r.quality < QMIN) return;
   $('watchTip').hidden = false; $('watchRes').textContent = ''; $('watchIn').value = '';
-  if (curBase === null) { $('cmp').textContent = '再量幾次（累積 3 次），就能比較你的平常心率，並解鎖「今日電量」。'; return; }
+  if (curBase === null) { $('cmp').textContent = '再量幾次（累積 3 次訊號良好的量測），就能比較你的平常心率，並解鎖「今日電量」。'; return; }
   const d = Math.round(r.bpm - curBase);
   $('cmp').textContent = d === 0 ? '和你平常差不多（平常約 ' + Math.round(curBase) + '）' : '比你平常' + (d > 0 ? '高' : '低') + ' ' + Math.abs(d) + ' 下（平常約 ' + Math.round(curBase) + '）';
   const b = batteryOf(r.bpm, curBase);
   $('bat').hidden = false;
-  $('batnum').textContent = b + '%';
-  $('batfill').style.width = b + '%';
-  $('battxt').textContent = (b >= 80 ? '電力充足。' : b >= 55 ? '電力正常。' : '電力偏低，今天可以早點休息。') + '這是和你自己平常比較的參考，不是醫療判斷。';
+  const lv = b >= 80 ? 3 : b >= 55 ? 2 : 1;   // 只顯示三格，不顯示分數
+  $('batnum').textContent = ['偏低', '正常', '充足'][lv - 1];
+  document.querySelectorAll('#bat .batbar i').forEach((x, i) => x.classList.toggle('on', i < lv));
+  $('battxt').textContent = (lv === 3 ? '電力充足。' : lv === 2 ? '電力正常。' : '電力偏低，今天可以早點休息。') + '這是和你自己平常比較的參考，不是醫療判斷。';
 }
 document.querySelectorAll('#sleepChips button').forEach(btn => btn.onclick = () => {
   sleepAdj = { good: 8, ok: 0, bad: -8 }[btn.dataset.v];

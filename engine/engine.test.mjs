@@ -226,3 +226,10 @@ test('專屬報告：所有文字都不含禁用詞', () => {
   for (const t of Object.values(data.claims.needLabels)) texts.push(t);
   for (const t of texts) assert.deepEqual(findBannedTerms(t, data.claims), [], t);
 });
+
+test('心率與電量不得進入規則引擎或資料檔（掃臉不決定配方）', () => {
+  for (const f of ['engine.js', 'data/items.json', 'data/limits.json', 'data/questions.json', 'data/claims.json']) {
+    const src = readFileSync(new URL(`./${f}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /bpm|heartRate|battery|電量|心率|watch_bpm/i, f);
+  }
+});
