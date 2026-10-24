@@ -457,7 +457,7 @@ async function finish(sub: string, replyToken: string, s: Session) {
   if (pk.error) throw pk.error;
   return reply(replyToken, [
     { type: "text", text: "謝謝你！這是依你的回答整理的專屬報告。品項我們確認後，會在這裡通知你。" },
-    reportFlex(buildReport(result, s.answers, DATA)),
+    reportFlexV2(buildReport(result, s.answers, DATA)),
   ]);
 }
 
@@ -589,7 +589,7 @@ async function showReport(sub: string, replyToken: string) {
   if (p?.error) throw p.error;
   const answers = (p?.data as { intakes?: { answers?: Record<string, unknown> } } | null)?.intakes?.answers;
   if (!p?.data || !answers) return reply(replyToken, [{ type: "text", text: "你還沒有報告。回答 20 題問卷，我們就能整理一份給你。", quickReply: startQuick }]);
-  return reply(replyToken, [reportFlex(buildReport(p.data.result, answers, DATA))]);
+  return reply(replyToken, [reportFlexV2(buildReport(p.data.result, answers, DATA))]);
 }
 
 // 掃臉完成後，使用者端會自動送出「我量好了」，這裡回覆最新一次的結果
