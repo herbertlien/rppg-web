@@ -191,7 +191,7 @@ async function finish(sub: string, replyToken: string, s: Session) {
 }
 
 // ---------- 專屬報告（LINE Flex 卡片）----------
-type Report = { focus: { label: string; because: string[] }[]; taking: string[]; tier: number; avoided: string[]; safety: string; tip: string | null };
+type Report = { focus: { label: string; because: string[] }[]; taking: string[]; tier: number; avoided: string[]; safety: string; tip: string | null; diet?: string | null };
 const T = (text: string, o: Record<string, unknown> = {}) => ({ type: "text", text, wrap: true, ...o });
 const bubble = (title: string, lines: unknown[], footer?: unknown) => ({
   type: "bubble", size: "mega",
@@ -204,40 +204,57 @@ const bubble = (title: string, lines: unknown[], footer?: unknown) => ({
   ...(footer ? { footer } : {}),
 });
 
-function reportFlex(r: Report) {
-  const bubbles: unknown[] = [];
-  if (r.focus.length) {
-    bubbles.push(bubble("你的重點", r.focus.flatMap((f, i) => [
-      T(`${i + 1}　${f.label}`, { size: "lg", weight: "bold", color: "#1F5C42" }),
-      T(f.because.join("；") || "依你的回答", { size: "md", color: "#7A8780" }),
-    ])));
-  }
-  const org: unknown[] = [];
-  if (r.taking.length) org.push(T(`你現在固定吃：${r.taking.join("、")}`, { size: "md", color: "#1E2A24" }));
-  org.push(T(`整理成一包，每天 ${r.tier} 項，品項由我們確認後通知你。`, { size: "md", color: "#1E2A24" }));
-  for (const a of r.avoided) org.push(T(`✓ ${a}`, { size: "md", color: "#1F5C42" }));
-  org.push(T(r.safety, { size: "sm", color: "#7A8780" }));
-  bubbles.push(bubble("我們幫你整理了什麼", org));
-  bubbles.push(bubble("先試一件小事", [
-    T(r.tip ?? "先維持目前的作息。", { size: "lg", color: "#1E2A24" }),
-    T("再量幾次「今日電量」，就能和你自己的平常比較。", { size: "md", color: "#7A8780" }),
-  ], { type: "box", layout: "vertical", paddingAll: "16px", contents: [
-    { type: "button", style: "primary", color: "#2F7D5B", height: "md", action: { type: "uri", label: "量今日電量", uri: LIFF_URL } },
-  ] }));
-  return { type: "flex", altText: "你的 Deerly 專屬報告", contents: { type: "carousel", contents: bubbles } };
-}
+// ---------- 新版卡片視覺（頁頭圖＋圓角數字＋圓點）----------
+const CARD_HEADER = "https://herbertlien.github.io/rppg-web/cards/header.png";
+const C = { bg: "#FCF8EF", deep: "#1F5C42", brand: "#2F7D5B", ink: "#1E2A24", mute: "#6B7A72", chip: "#E3EBE4", line: "#D9DFD6" };
+const num = (n: number) => ({ type: "box", layout: "vertical", width: "30px", height: "30px", cornerRadius: "15px", backgroundColor: C.chip,
+  justifyContent: "center", alignItems: "center", flex: 0, contents: [T(String(n).padStart(2, "0"), { size: "xs", weight: "bold", color: C.deep, wrap: false })] });
+const dots = (active: number, total: number) => ({ type: "box", layout: "horizontal", spacing: "sm", justifyContent: "center", contents: Array.from({ length: total }, (_, i) => (
+  { type: "box", layout: "vertical", width: "8px", height: "8px", cornerRadius: "4px", backgroundColor: i === active ? C.deep : "#D3D6D1", contents: [{ type: "filler" }] })) });
+const cardV2 = (i: number, total: number, eyebrow: string, title: string, sub: string, body: unknown[], button?: { label: string; uri: string }, hint?: string) => ({
+  type: "bubble", size: "mega",
+  styles: { body: { backgroundColor: C.bg }, footer: { backgroundColor: C.bg } },
+  hero: { type: "image", url: CARD_HEADER, size: "full", aspectRatio: "1040:225", aspectMode: "cover" },
+  body: { type: "box", layout: "vertical", spacing: "md", paddingTop: "4px", paddingAll: "20px", contents: [
+    T(`${String(i + 1).padStart(2, "0")} / ${eyebrow}`, { size: "xs", weight: "bold", color: C.deep }),
+    T(title, { size: "xl", weight: "bold", color: C.deep }),
+    T(sub, { size: "sm", color: C.mute }),
+    ...body,
+  ] },
+  footer: { type: "box", layout: "vertical", spacing: "md", paddingTop: "0px", paddingAll: "16px", contents: [
+    ...(button ? [{ type: "button", style: "secondary", height: "md", action: { type: "uri", label: button.label, uri: button.uri } }] : []),
+    ...(hint ? [T(hint, { size: "xs", color: C.mute, align: "center" })] : []),
+    dots(i, total),
+  ] },
+});
 
-// ---- 新版卡片（預覽中，只有管理者能用指令看；正式流程還沒換）----
-// 問卷答完：封面、個人化依據、整理了什麼（不含品項）、下一步
-function reportFlexV2(r: Report) {
-  const cover = bubble("給你的專屬報告", [
-    T("依你這次的回答整理，不含任何功效說法。", { size: "md", color: "#7A8780" }),
-    ...(r.focus.length ? [T("這次的重點", { size: "sm", weight: "bold", color: "#2F7D5B" }),
-      ...r.focus.map((f, i) => T(`${i + 1}　${f.label}`, { size: "lg", weight: "bold", color: "#1F5C42" }))] : []),
-    T("向左滑看完整內容 ›", { size: "sm", color: "#7A8780" }),
-  ]);
-  const rest = (reportFlex(r).contents as { contents: unknown[] }).contents;
-  return { type: "flex", altText: "你的 Deerly 專屬報告", contents: { type: "carousel", contents: [cover, ...rest] } };
+// 問卷答完（A 組）：封面、你的回答、為什麼這樣整理、下一步；不含品項。nick 是客人自己設定的稱呼，沒有就不叫名字。
+function reportFlexV2(r: Report, nick?: string) {
+  const pills = [
+    `最想照顧：${r.focus.map(f => f.label).join("、") || "還沒選"}`,
+    `目前固定補充：${r.taking.join("、") || "沒有"}`,
+    ...(r.diet ? [`飲食習慣：${r.diet}`] : []),
+    `希望每天：${r.tier} 項`,
+  ];
+  const pill = (t: string, n: number) => ({ type: "box", layout: "horizontal", spacing: "md", alignItems: "center", paddingAll: "8px",
+    cornerRadius: "20px", borderWidth: "1px", borderColor: C.line, contents: [num(n), T(t, { size: "sm", color: C.deep, weight: "bold" })] });
+  const why = [
+    ["目前固定補充的品項", "避免和既有習慣重複。"], ["想優先照顧的日常狀態", "先整理你最在意的方向。"],
+    ["飲食習慣與生活作息", "作為後續整理的參考。"], ["安全與重複補充確認", "讓建議更一致。"],
+  ];
+  const whyRow = (t: [string, string], n: number) => ({ type: "box", layout: "vertical", spacing: "sm", contents: [
+    { type: "box", layout: "horizontal", spacing: "md", alignItems: "center", contents: [num(n), { type: "box", layout: "vertical", contents: [T(t[0], { size: "sm", weight: "bold", color: C.deep }), T(t[1], { size: "xs", color: C.mute })] }] },
+    ...(n < 4 ? [{ type: "separator", color: C.line, margin: "sm" }] : []),
+  ] });
+  const steps = ["整理你的問卷回答", "確認目前固定補充的內容", "完成後通知你查看本月組合"];
+  const step = (t: string, n: number) => ({ type: "box", layout: "horizontal", spacing: "md", alignItems: "center", contents: [num(n), T(t, { size: "sm", color: C.ink })] });
+  const total = 4;
+  return { type: "flex", altText: "你的 Deerly 專屬報告", contents: { type: "carousel", contents: [
+    cardV2(0, total, "PERSONAL EDITION", nick ? `Hi，${nick}。` : "你好。", "你的專屬營養補充品提案，依照你的問卷回答整理。", [], undefined, "向左滑動查看 ›"),
+    cardV2(1, total, "YOUR RESPONSES", "這次，我們先從你的問卷回答開始", "以下內容會作為後續整理的參考", pills.map((t, i) => pill(t, i + 1)), undefined, "繼續向左滑 ›"),
+    cardV2(2, total, "MADE FOR YOU", "為什麼會先整理成這樣的方向？", "我們會依照你的問卷回答逐項查看", why.map((t, i) => whyRow(t as [string, string], i + 1)), undefined, "再向左滑一張 ›"),
+    cardV2(3, total, "NEXT STEP", "接下來，Deerly 會怎麼做？", "我們會先整理你的問卷回答，再通知你查看後續內容", steps.map((t, i) => step(t, i + 1)), { label: "前往我的 Deerly", uri: `${LIFF_URL}/me/` }),
+  ] } };
 }
 
 // 核准後：本月組合（每項一張，附原因）
