@@ -416,7 +416,7 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
 
 const CONSENT_TEXT = "開始前請先看一下：\n接下來會問你年齡、是否懷孕或用藥、過敏、目前吃的保健食品，以及作息與飲食習慣，用來整理適合你的每日組合。\n・回答只有 Deerly 負責審核的人看得到，不會提供給第三方。\n・如果依回答我們不適合提供服務，這次的回答不會被保存。\n・如果你也用過心率量測，量測的數字（沒有影像）會一起給審核者參考。\n・配方由固定規則整理，再由人工確認後才通知你；這不是醫療建議。\n・你隨時可以刪除所有資料。\n（草稿，正式對外前會請專業人士審閱）";
 
-async function startFlow(sub: string, replyToken: string) {
+async function startFlow(sub: string, replyToken: string, force = false) {
   const uid = await findUser(sub, true);
   if (!uid) return;
   if (!(await hasConsent(uid))) {
@@ -424,6 +424,16 @@ async function startFlow(sub: string, replyToken: string) {
       type: "text", text: CONSENT_TEXT,
       quickReply: quick([{ label: "我同意，開始", data: "consent|yes" }, { label: "先不要", data: "consent|no" }]),
     }]);
+  }
+  if (!force) {
+    // 還有沒答完的問卷（已經答過至少一題）時，先問要繼續還是重來，不要直接清掉進度
+    const old = await loadSession(uid);
+    if (old?.cur && old.history.length) {
+      return reply(replyToken, [{
+        type: "text", text: `你有一份還沒答完的問卷（已答 ${old.history.length} 題）。要繼續，還是重新開始？`,
+        quickReply: quick([{ label: "繼續", data: "resume|go" }, { label: "重新開始", data: "restart|go" }]),
+      }]);
+    }
   }
   const first = nextQuestion({}, null)!;
   const s: Session = { user_id: uid, answers: {}, cur: first.id, multi: [], history: [] };
@@ -552,7 +562,7 @@ async function onScanDone(sub: string, replyToken: string) {
   }
   if (last.quality < 0.35) return reply(replyToken, [{ type: "text", text: "這次訊號不太穩，請在光線充足的地方再量一次。", quickReply: again }]);
   const base = (rows!.data as { bpm: number; quality: number; scanned_at: string }[]).slice(1)
-    .filter((r) => r.quality >= 0.35 && Date.now() - new Date(r.scanned_at).getTime() < 28 * 864e5).map((r) => r.bpm).sort((a, b) => a - b);
+    .filter((r) => r.quality >= 0.55 && Date.now() - new Date(r.scanned_at).getTime() < 28 * 864e5).map((r) => r.bpm).sort((a, b) => a - b);
   let cmp = "";
   if (base.length >= 3) {
     const m = base.length >> 1, med = base.length % 2 ? base[m] : (base[m - 1] + base[m]) / 2;
@@ -570,6 +580,7 @@ async function onScanDone(sub: string, replyToken: string) {
 async function onPostback(sub: string, replyToken: string, data: string) {
   const [kind, qid, value] = data.split("|");
   if (kind === "home") return qid === "pack" ? showPack(sub, replyToken) : startFlow(sub, replyToken);
+  if (kind === "restart") return startFlow(sub, replyToken, true);
   if (kind === "consent") {
     if (qid !== "yes") return reply(replyToken, [{ type: "text", text: "好的，需要的時候輸入「開始問卷」就可以。" }]);
     const uid = await findUser(sub, true);
@@ -583,6 +594,8 @@ async function onPostback(sub: string, replyToken: string, data: string) {
   const uid = await findUser(sub, false);
   const s = uid ? await loadSession(uid) : null;
   if (!uid || !s || !s.cur) return reply(replyToken, [{ type: "text", text: "輸入「開始問卷」就可以開始。", quickReply: quick([{ label: "開始問卷", text: "開始問卷" }]) }]);
+
+  if (kind === "resume") return askQuestion(sub, replyToken, s);
 
   if (kind === "back") {
     const prev = s.history.pop();
