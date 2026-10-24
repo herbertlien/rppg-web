@@ -281,7 +281,7 @@ async function onScanDone(sub: string, replyToken: string) {
   }
   if (last.quality < 0.35) return reply(replyToken, [{ type: "text", text: "這次訊號不太穩，請在光線充足的地方再量一次。", quickReply: again }]);
   const base = (rows!.data as { bpm: number; quality: number; scanned_at: string }[]).slice(1)
-    .filter((r) => r.quality >= 0.35 && Date.now() - new Date(r.scanned_at).getTime() < 28 * 864e5).map((r) => r.bpm).sort((a, b) => a - b);
+    .filter((r) => r.quality >= 0.55 && Date.now() - new Date(r.scanned_at).getTime() < 28 * 864e5).map((r) => r.bpm).sort((a, b) => a - b);
   let cmp = "";
   if (base.length >= 3) {
     const m = base.length >> 1, med = base.length % 2 ? base[m] : (base[m - 1] + base[m]) / 2;
