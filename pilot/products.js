@@ -59,7 +59,6 @@ export function createPreview(p, a) {
       distract:'先關閉通知，把注意力帶回眼前的引導',
       unsure:'照著預先安排好的步驟開始，不用自己挑選內容'
     }[a.barrier];
-    const format = {audio:'語音引導',visual:'視覺節奏提示',text:'短文字引導'}[a.format];
     const kinds = [
       '找到安靜的坐姿，觀察自然呼吸，不必改變節奏',
       '放鬆肩膀與手部，留意接觸椅子的感覺',
@@ -71,9 +70,9 @@ export function createPreview(p, a) {
     ];
     return {
       headline:`適合你的 ${p.days} 天・每天 ${minutes} 分鐘練習`,
-      reason:`你選擇在「${context}」練習，偏好「${format}」。因此計畫以固定時段、可完成的小任務為主。`,
-      notes:[focus, a.reminder==='none'?'你選擇不接收提醒':`你偏好的提醒時段：${label(p,'reminder',a.reminder)}（正式版才會提供通知設定）`],
-      tasks:Array.from({length:14},(_,i)=>({day:i+1,title:`第 ${i+1} 天・${kinds[i%kinds.length]}`,detail:`建議 ${minutes} 分鐘，以${format}進行；結束後記下自己的感受即可。`}))
+      reason:`你想在${context}練習，所以計畫都排在固定時段，每天一個做得到的小步驟。`,
+      notes:[focus, a.reminder==='none'?'你選擇不接收提醒':`你偏好的提醒時段：${label(p,'reminder',a.reminder)}`],
+      tasks:Array.from({length:14},(_,i)=>({day:i+1,title:`第 ${i+1} 天・${kinds[i%kinds.length]}`,detail:`${minutes} 分鐘；做完記下一句感受就好。`}))
     };
   }
   const scenes={interview:'面試',presentation:'簡報',pitch:'客戶提案',conversation:'重要對話'};

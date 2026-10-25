@@ -1,6 +1,6 @@
 {
   "type": "flex",
-  "altText": "14 天放鬆練習｜5 題約 1 分鐘，心率可略過。請閱讀說明後選擇是否同意。",
+  "altText": "14 天放鬆練習｜回答 5 題，約 1 分鐘，排出你的練習計畫。",
   "contents": {
     "type": "bubble",
     "size": "mega",
@@ -13,15 +13,15 @@
       "contents": [
         {
           "type": "text",
-          "text": "DEERLY / LAB",
+          "text": "DEERLY・14 天放鬆練習",
           "wrap": true,
-          "size": "sm",
+          "size": "xs",
           "color": "#1F5C42",
           "weight": "bold"
         },
         {
           "type": "text",
-          "text": "14 天放鬆練習",
+          "text": "每天幾分鐘，留給自己",
           "wrap": true,
           "size": "xl",
           "color": "#1E2A24",
@@ -38,24 +38,24 @@
       "contents": [
         {
           "type": "text",
-          "text": "每天 3–10 分鐘，替自己留一點放鬆時間。",
+          "text": "回答 5 題（約 1 分鐘），幫你排出 14 天、每天 3–10 分鐘的放鬆練習。",
           "wrap": true,
           "size": "md",
           "color": "#1E2A24"
         },
         {
           "type": "text",
-          "text": "5 題／約 1 分鐘・心率量測可略過",
+          "text": "想的話，也可以用手機前鏡頭量一下心跳。",
           "wrap": true,
           "size": "md",
           "color": "#1E2A24"
         },
         {
           "type": "text",
-          "text": "同意後會記錄偏好與意願，保存最多 30 天，隨時可刪除。僅為預覽，尚未開放購買。",
+          "text": "按下同意後，會保存你的回答最多 30 天，隨時可以刪除。",
           "wrap": true,
-          "size": "md",
-          "color": "#1E2A24"
+          "size": "xs",
+          "color": "#52655B"
         }
       ]
     },
@@ -73,9 +73,9 @@
           "color": "#1F5C42",
           "action": {
             "type": "postback",
-            "label": "同意，開始五題",
+            "label": "同意並開始",
             "data": "rlx|start|yes",
-            "displayText": "同意，開始五題"
+            "displayText": "同意並開始"
           }
         },
         {
@@ -85,9 +85,9 @@
           "color": "#1F5C42",
           "action": {
             "type": "postback",
-            "label": "完整資料說明",
+            "label": "資料怎麼使用",
             "data": "rlx|privacy",
-            "displayText": "完整資料說明"
+            "displayText": "資料怎麼使用"
           }
         },
         {

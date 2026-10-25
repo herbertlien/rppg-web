@@ -13,7 +13,7 @@ test('disabled, non-allowlisted and bad signatures do not create or read pilot r
   const f=fixture();await f.event({type:'postback',postback:{data:'rlx|start|yes'}},'invited',false);assert.equal(f.calls.length,0);
 });
 test('welcome, full disclosure and refusal do not create a user/session; admin may participate',async()=>{
-  const f=fixture();const msg=await f.text('放鬆測試');assert.equal(msg[0].type,'flex');assert.match(serialized(msg),/完整資料說明/);
+  const f=fixture();const msg=await f.text('放鬆測試');assert.equal(msg[0].type,'flex');assert.match(serialized(msg),/資料怎麼使用/);
   await f.post('rlx|privacy');assert.match(serialized(f.replies.at(-1)),/30 天/);
   await f.post('rlx|start|no');assert.equal(f.writes.length,0);
   const admin=fixture({allow:'',admin:'invited'});await admin.begin();assert.equal(admin.session().step,0);
@@ -29,13 +29,13 @@ test('five questions, invalid options, back, pause, resume and repeated consent 
   await f.text('放鬆測試');await f.click('rlx|resume');assert.equal(f.session().paused,false);
   for(let i=0;i<5;i++)await f.click(`rlx|answer|${i}|${catalog.relax.questions[i].options[0].value}`);
   assert.equal(f.session().status,'scan');assert.equal(Object.keys(f.session().answers).length,5);
-  assert.match(serialized(f.replies.at(-1)),/用前鏡頭看看心跳/);
+  assert.match(serialized(f.replies.at(-1)),/要量一下心跳嗎/);
 });
 test('skip requires no scan read and interest is recorded once, with no order or reminders',async()=>{
   const f=fixture();await f.complete();await f.click('rlx|scan|skip');assert.equal(f.session().status,'preview');
   assert.equal(f.calls.filter(c=>c.table==='scans').length,0);
   assert.equal(f.replies.at(-1).filter(m=>m.type==='flex').length,2);
-  assert.match(serialized(f.replies.at(-1)),/尚未開放購買／不會扣款/);
+  assert.match(serialized(f.replies.at(-1)),/只開放登記，不會收費/);
   const interest=f.scoped('rlx|interest');await Promise.all([f.post(interest),f.post(interest)]);
   const time=f.session().interest_clicked_at;await f.click('rlx|interest');assert.equal(f.session().interest_clicked_at,time);
   assert.deepEqual([...new Set(f.writes.map(w=>w.table))],['digital_relax_pilot_sessions']);
@@ -44,7 +44,7 @@ test('old, low quality, future, invalid and missing scans never surface as curre
   for(const bad of [null,{quality:0.1,bpm:70},{quality:null,bpm:70},{quality:0.8,bpm:null},{quality:0.8,bpm:300},{quality:0.8,bpm:70,scanned_at:'2099-01-01T00:00:00Z'},{quality:0.8,bpm:70,scanned_at:'2000-01-01T00:00:00Z'}]){
     const f=fixture();await f.complete();await f.click('rlx|scan|yes');
     if(bad)f.tables.scans.push({user_id:'fake-user',scanned_at:new Date().toISOString(),...bad});
-    await f.text('我量好了');assert.equal(f.session().status,'scan');assert.match(serialized(f.replies.at(-1)),/略過/);
+    await f.text('我量好了');assert.equal(f.session().status,'scan');assert.match(serialized(f.replies.at(-1)),/直接看計畫/);
     await f.click('rlx|scan|skip');assert.equal(f.session().status,'preview');
   }
 });
@@ -54,7 +54,7 @@ test('fresh high quality scan only displays transiently; scoped LIFF completion 
   f.tables.scans.push({user_id:'fake-user',bpm:72,quality:0.8,scanned_at:new Date().toISOString()});
   await f.text('放鬆量測完成 old-flow');assert.equal(f.session().status,'scan');
   const done=`放鬆量測完成 ${f.session().flow_id}`;await f.text(done);assert.equal(f.session().status,'preview');
-  assert.match(serialized(f.replies.at(-1)),/72 次／分鐘/);assert.doesNotMatch(serialized(f.session()),/bpm|quality/);
+  assert.match(serialized(f.replies.at(-1)),/每分鐘 72 下/);assert.doesNotMatch(serialized(f.session()),/bpm|quality/);
   const rev=f.session().revision;await f.text(done);assert.equal(f.session().revision,rev);
 });
 test('pilot and supplement/member state coexist; deletion and restarting never touch original data',async()=>{
@@ -63,7 +63,7 @@ test('pilot and supplement/member state coexist; deletion and restarting never t
   const original=supplementSnapshot(f);await f.complete();const old=f.scoped('rlx|scan|skip');
   await f.click('rlx|restart');assert.equal(f.session(),undefined);await f.begin();await f.post(old);assert.equal(f.session().status,'quiz');
   await f.click('rlx|delete');assert.equal(f.session(),undefined);assert.equal(supplementSnapshot(f),original);
-  await f.text('刪除放鬆測試資料');assert.equal(supplementSnapshot(f),original);
+  await f.text('刪除我的資料');assert.equal(supplementSnapshot(f),original);
 });
 test('legacy supplement start/resume and member link routing still work while pilot exists',async()=>{
   const f=fixture();await f.begin();
@@ -80,7 +80,7 @@ test('legacy supplement start/resume and member link routing still work while pi
 });
 test('storage errors provide a recovery response and do not leak details',async()=>{
   const f=fixture({failTable:'digital_relax_pilot_sessions'});await f.text('放鬆測試');
-  assert.match(serialized(f.replies.at(-1)),/恢復進度/);assert.doesNotMatch(serialized(f.replies.at(-1)),/simulated DB/);
+  assert.match(serialized(f.replies.at(-1)),/接著做/);assert.doesNotMatch(serialized(f.replies.at(-1)),/simulated DB/);
 });
 test('expired pilot records are removed without extending retention or touching supplement records',async()=>{
   const f=fixture();await f.begin();f.session().created_at='2000-01-01T00:00:00Z';await f.text('放鬆測試');

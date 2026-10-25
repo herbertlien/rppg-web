@@ -1,6 +1,6 @@
 {
   "type": "flex",
-  "altText": "前兩天練習預覽｜測試價 NT$1,290。尚未開放購買，不會扣款。",
+  "altText": "先試前兩天｜完整 14 天 NT$1,290，目前只開放登記。",
   "contents": {
     "type": "bubble",
     "size": "mega",
@@ -13,9 +13,9 @@
       "contents": [
         {
           "type": "text",
-          "text": "DEERLY / LAB",
+          "text": "DEERLY・14 天放鬆練習",
           "wrap": true,
-          "size": "sm",
+          "size": "xs",
           "color": "#1F5C42",
           "weight": "bold"
         },
@@ -38,31 +38,31 @@
       "contents": [
         {
           "type": "text",
-          "text": "第 1 天・找到安靜的坐姿，觀察自然呼吸，不必改變節奏\n建議 5 分鐘，以短文字引導進行；結束後記下自己的感受即可。",
+          "text": "第 1 天・找到安靜的坐姿，觀察自然呼吸，不必改變節奏\n5 分鐘；做完記下一句感受就好。",
           "wrap": true,
           "size": "md",
           "color": "#1E2A24"
         },
         {
           "type": "text",
-          "text": "第 2 天・放鬆肩膀與手部，留意接觸椅子的感覺\n建議 5 分鐘，以短文字引導進行；結束後記下自己的感受即可。",
+          "text": "第 2 天・放鬆肩膀與手部，留意接觸椅子的感覺\n5 分鐘；做完記下一句感受就好。",
           "wrap": true,
           "size": "md",
           "color": "#1E2A24"
         },
         {
           "type": "text",
-          "text": "完整 14 天方案測試價 NT$1,290",
+          "text": "完整 14 天計畫 NT$1,290",
           "wrap": true,
           "size": "md",
           "color": "#1E2A24"
         },
         {
           "type": "text",
-          "text": "尚未開放購買／不會扣款。按鈕只記錄意願，不產生訂單，也不會啟用提醒。",
+          "text": "目前只開放登記，不會收費，也不會成立訂單。",
           "wrap": true,
-          "size": "md",
-          "color": "#1E2A24"
+          "size": "xs",
+          "color": "#52655B"
         }
       ]
     },
@@ -80,9 +80,9 @@
           "color": "#1F5C42",
           "action": {
             "type": "postback",
-            "label": "這個價格，我有興趣",
+            "label": "我有興趣",
             "data": "rlx|interest~00000000-0000-4000-8000-000000000000~0",
-            "displayText": "這個價格，我有興趣"
+            "displayText": "我有興趣"
           }
         },
         {
@@ -92,9 +92,9 @@
           "color": "#1F5C42",
           "action": {
             "type": "postback",
-            "label": "再看一次方案",
+            "label": "再看一次計畫",
             "data": "rlx|resume~00000000-0000-4000-8000-000000000000~0",
-            "displayText": "再看一次方案"
+            "displayText": "再看一次計畫"
           }
         },
         {
@@ -104,9 +104,9 @@
           "color": "#1F5C42",
           "action": {
             "type": "postback",
-            "label": "刪除放鬆測試資料",
+            "label": "刪除我的資料",
             "data": "rlx|delete~00000000-0000-4000-8000-000000000000~0",
-            "displayText": "刪除放鬆測試資料"
+            "displayText": "刪除我的資料"
           }
         }
       ]

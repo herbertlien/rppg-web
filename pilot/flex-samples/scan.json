@@ -1,6 +1,6 @@
 {
   "type": "flex",
-  "altText": "選用心率量測｜約 30 秒，可直接略過並取得相同方案。",
+  "altText": "要量一下心跳嗎？約 30 秒，也可以略過。",
   "contents": {
     "type": "bubble",
     "size": "mega",
@@ -13,15 +13,15 @@
       "contents": [
         {
           "type": "text",
-          "text": "DEERLY / LAB",
+          "text": "DEERLY・14 天放鬆練習",
           "wrap": true,
-          "size": "sm",
+          "size": "xs",
           "color": "#1F5C42",
           "weight": "bold"
         },
         {
           "type": "text",
-          "text": "用前鏡頭看看心跳",
+          "text": "要量一下心跳嗎？",
           "wrap": true,
           "size": "xl",
           "color": "#1E2A24",
@@ -38,24 +38,24 @@
       "contents": [
         {
           "type": "text",
-          "text": "約 30 秒，不用穿戴裝置。原始影像只在手機量測頁處理。",
+          "text": "用手機前鏡頭，大約 30 秒，不用穿戴裝置。",
           "wrap": true,
           "size": "md",
           "color": "#1E2A24"
         },
         {
           "type": "text",
-          "text": "不是壓力、情緒或疾病診斷；不量也能取得相同方案。",
+          "text": "不量也會拿到一樣的計畫。",
           "wrap": true,
           "size": "md",
           "color": "#1E2A24"
         },
         {
           "type": "text",
-          "text": "請先選擇是否量測，量測頁的資料保存同意會另外詢問。",
+          "text": "影像只在手機上處理、不上傳；量測頁會另外詢問是否保存。這不是醫療檢測。",
           "wrap": true,
-          "size": "md",
-          "color": "#1E2A24"
+          "size": "xs",
+          "color": "#52655B"
         }
       ]
     },
@@ -73,9 +73,9 @@
           "color": "#1F5C42",
           "action": {
             "type": "postback",
-            "label": "選擇量測心率",
+            "label": "量一下",
             "data": "rlx|scan|yes~00000000-0000-4000-8000-000000000000~0",
-            "displayText": "選擇量測心率"
+            "displayText": "量一下"
           }
         },
         {
@@ -85,9 +85,9 @@
           "color": "#1F5C42",
           "action": {
             "type": "postback",
-            "label": "略過，看我的方案",
+            "label": "略過，直接看計畫",
             "data": "rlx|scan|skip~00000000-0000-4000-8000-000000000000~0",
-            "displayText": "略過，看我的方案"
+            "displayText": "略過，直接看計畫"
           }
         }
       ]

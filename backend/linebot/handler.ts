@@ -455,15 +455,15 @@ async function onText(sub: string, replyToken: string, text: string) {
     if(!relaxMenuTestScope())return reply(replyToken,[{type:"text",text:"這個操作只適用測試帳號。"}]);
     const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
     if(s){await relaxMenusRestore(sub,s);if(!s.paused)await relaxUpdate(s,{paused:true});}
-    return reply(replyToken,[{type:"text",text:"已收起放鬆問卷選單，保留進度。輸入「放鬆測試」可繼續。"}]);
+    return reply(replyToken,[{type:"text",text:"已收起選單，進度幫你留著。想繼續時傳任何訊息就可以。"}]);
   });
-  if (["放鬆測試","14天放鬆","14 天放鬆","重新開始放鬆測試"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxStart(sub,replyToken));
-  if (t === "刪除放鬆測試資料") return relaxGuard(sub,replyToken,()=>relaxDelete(sub,replyToken));
+  if (["放鬆測試","放鬆練習","14天放鬆","14 天放鬆","重新開始放鬆測試"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxStart(sub,replyToken));
+  if (["刪除我的資料","刪除放鬆測試資料"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxDelete(sub,replyToken));
   if (/^放鬆量測完成 /.test(t)) return relaxGuard(sub,replyToken,async()=>{
     if (!relaxAllowed(sub)) return reply(replyToken,[{type:"text",text:"放鬆測試目前未開放。"}]);
     const uid=await findUser(sub,false), s=uid?await relaxSession(uid):null;
     if (s && t === `放鬆量測完成 ${s.flow_id}`) return relaxScanDone(sub,replyToken,s);
-    return reply(replyToken,[{type:"text",text:"這次放鬆量測連結已過期，請輸入「放鬆測試」繼續。"}]);
+    return reply(replyToken,[{type:"text",text:"這個量測連結已經過期了，傳任何訊息就能接著做。"}]);
   });
   if (t === "我量好了" && relaxAllowed(sub)) {
     const handled=await relaxGuard(sub,replyToken,async()=>{
@@ -544,14 +544,14 @@ async function relaxStart(sub: string, token: string) {
   const existing = uid ? await relaxSession(uid) : null;
   if (existing) {
     const data = relaxData(existing);
-    return reply(token, [{ type:"text", text:"你已有一份放鬆測試進度。可繼續，或重新閱讀同意說明後重做。保健品問卷進度仍保留，請用各自訊息中的按鈕作答。",
-      quickReply:quick([{label:"繼續放鬆測試",data:data("rlx|resume")},{label:"重新開始",data:data("rlx|restart")},{label:"刪除測試資料",data:data("rlx|delete")}]) }]);
+    return reply(token, [{ type:"text", text:"你上次的放鬆練習還沒做完。要接著做，還是重新開始？",
+      quickReply:quick([{label:"接著做",data:data("rlx|resume")},{label:"重新開始",data:data("rlx|restart")},{label:"刪除我的資料",data:data("rlx|delete")}]) }]);
   }
   return reply(token, [relaxWelcome()]);
 }
 async function relaxAsk(sub: string, token: string, s: RelaxSession) {
   const data = relaxData(s);
-  if (s.paused) { await relaxMenusTryRestore(sub,s); return reply(token,[{type:"text",text:"放鬆測試已暫停，進度保留。需要時可繼續或刪除。",quickReply:quick([{label:"繼續",data:data("rlx|resume")},{label:"刪除測試資料",data:data("rlx|delete")}])}]); }
+  if (s.paused) { await relaxMenusTryRestore(sub,s); return reply(token,[{type:"text",text:"先暫停囉，進度幫你留著。想繼續時傳任何訊息就可以。",quickReply:quick([{label:"繼續",data:data("rlx|resume")},{label:"刪除我的資料",data:data("rlx|delete")}])}]); }
   if (s.status === "preview") return relaxPreview(sub,token, s);
   if (s.status === "scan") return relaxOfferScan(sub,token, s);
   const q = catalog.relax.questions[s.step];
@@ -563,7 +563,7 @@ async function relaxAsk(sub: string, token: string, s: RelaxSession) {
   let menuStatus=relaxMenuTestScope()?(Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED")==="1"?"MENU_STATE_CHANGED":"MENU_SWITCH_OFF"):"MENU_TEST_SCOPE_MISMATCH";
   try{rich=await relaxMenusShow(sub,s);}catch(e){menuStatus=relaxMenuFailure(e);console.error("Test menu fallback",menuStatus);}
   const prompt=`放鬆練習 ${s.step+1}/5\n${q.text}`;
-  if(rich)return reply(token,[{type:"text",text:prompt+(s.step===0?"\n答案在下方大字選單；若鍵盤開著，先收起再展開選單。":"")}]);
+  if(rich)return reply(token,[{type:"text",text:prompt+(s.step===0?"\n請點下方選單作答。":"")}]);
   return reply(token,[{type:"text",text:prompt+`\n請用訊息下方按鈕作答。大字選單狀態：${menuStatus}；可輸入「選單診斷」查詢。`,quickReply:quick(items)}]);
 }
 async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
@@ -586,8 +586,8 @@ async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
   const time = Date.parse(last?.scanned_at ?? ""), started = Date.parse(s.scan_started_at);
   if (!last || !Number.isFinite(time) || !Number.isFinite(started) || time < started || time > now || now-time > 15*60e3 ||
       !Number.isFinite(last.quality) || last.quality < 0.35 || !Number.isFinite(last.bpm) || last.bpm < 30 || last.bpm > 220) {
-    return reply(token,[{type:"text",text:"尚未取得本次有效的新心率。相機拒絕、光線不足或未保存都沒關係，可以直接略過。",
-      quickReply:quick([{label:"再量一次",uri:relaxScanUrl(s)},{label:"略過，看方案",data:relaxData(s)("rlx|scan|skip")}])}]);
+    return reply(token,[{type:"text",text:"這次沒有量到清楚的心跳。沒關係，可以再量一次，或直接看計畫。",
+      quickReply:quick([{label:"再量一次",uri:relaxScanUrl(s)},{label:"直接看計畫",data:relaxData(s)("rlx|scan|skip")}])}]);
   }
   const next = await relaxUpdate(s,{status:"preview"});
   return relaxPreview(sub,token,next,last.bpm);
@@ -598,7 +598,7 @@ async function relaxPostback(sub: string, token: string, raw: string) {
   const [prefix,kind,detail,value] = data.split("|");
   if (prefix !== "rlx") return;
   if (kind === "privacy") return reply(token,relaxPrivacy.map(text=>({type:"text",text})));
-  if (kind === "start" && detail === "no") return reply(token,[{type:"text",text:"好的，不會建立新的放鬆測試紀錄。既有進度如需刪除，請輸入「刪除放鬆測試資料」。"}]);
+  if (kind === "start" && detail === "no") return reply(token,[{type:"text",text:"好的，沒有保存任何資料。想試的時候，傳任何訊息給我就可以。"}]);
   if (kind === "start" && detail === "yes") {
     const uid = await findUser(sub,true);
     if (!uid) throw new Error("RELAX_USER_MISSING");
@@ -648,7 +648,7 @@ async function relaxPostback(sub: string, token: string, raw: string) {
   if (kind === "done") return relaxScanDone(sub,token,s);
   if (kind === "interest" && s.status === "preview") {
     if (!s.interest_clicked_at) await relaxUpdate(s,{interest_clicked_at:new Date().toISOString()});
-    return reply(token,[{type:"text",text:"謝謝，已記下你對 NT$1,290 方案的興趣。這不是訂單、沒有收款，也未啟用每日通知。"}]);
+    return reply(token,[{type:"text",text:"謝謝，已幫你登記！目前不會收費，也沒有成立訂單。"}]);
   }
   return relaxAsk(sub,token,s);
 }
@@ -664,7 +664,7 @@ async function relaxDelete(sub: string, token: string, session?: RelaxSession, r
     if (r.error) throw r.error;
     if (session && !r.data?.length) throw new Error("RELAX_STALE_ACTION");
   }
-  if (respond) return reply(token,[{type:"text",text:"已刪除放鬆問卷、同意及意願紀錄；保健品與原心率紀錄保持不變。原心率請到量測頁另行刪除。"}]);
+  if (respond) return reply(token,[{type:"text",text:"已刪除你的放鬆練習回答與紀錄。心率紀錄請到量測頁刪除。"}]);
 }
 // In-instance ordering + DB revision comparisons protect rapid clicks across instances.
 const relaxQueues = new Map<string, Promise<unknown>>();
@@ -674,8 +674,8 @@ async function relaxGuard(sub: string, token: string, work: () => Promise<unknow
     // Do not log answer values, LINE IDs or raw DB errors.
     console.error("Relax pilot operation failed");
     const text=e instanceof Error && e.message==="RELAX_STALE_ACTION"
-      ?"進度已更新，請輸入「放鬆測試」繼續。"
-      :"剛才沒能完成，請輸入「放鬆測試」恢復進度；也可輸入「刪除放鬆測試資料」。";
+      ?"進度剛剛更新過，傳任何訊息就能接著做。"
+      :"剛才沒有完成，傳任何訊息就能接著做；也可以輸入「刪除我的資料」。";
     return reply(token,[{type:"text",text}]);
   });
   relaxQueues.set(sub,current);

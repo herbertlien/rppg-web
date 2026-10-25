@@ -727,15 +727,15 @@ async function onText(sub: string, replyToken: string, text: string) {
     if(!relaxMenuTestScope())return reply(replyToken,[{type:"text",text:"這個操作只適用測試帳號。"}]);
     const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
     if(s){await relaxMenusRestore(sub,s);if(!s.paused)await relaxUpdate(s,{paused:true});}
-    return reply(replyToken,[{type:"text",text:"已收起放鬆問卷選單，保留進度。輸入「放鬆測試」可繼續。"}]);
+    return reply(replyToken,[{type:"text",text:"已收起選單，進度幫你留著。想繼續時傳任何訊息就可以。"}]);
   });
-  if (["放鬆測試","14天放鬆","14 天放鬆","重新開始放鬆測試"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxStart(sub,replyToken));
-  if (t === "刪除放鬆測試資料") return relaxGuard(sub,replyToken,()=>relaxDelete(sub,replyToken));
+  if (["放鬆測試","放鬆練習","14天放鬆","14 天放鬆","重新開始放鬆測試"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxStart(sub,replyToken));
+  if (["刪除我的資料","刪除放鬆測試資料"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxDelete(sub,replyToken));
   if (/^放鬆量測完成 /.test(t)) return relaxGuard(sub,replyToken,async()=>{
     if (!relaxAllowed(sub)) return reply(replyToken,[{type:"text",text:"放鬆測試目前未開放。"}]);
     const uid=await findUser(sub,false), s=uid?await relaxSession(uid):null;
     if (s && t === `放鬆量測完成 ${s.flow_id}`) return relaxScanDone(sub,replyToken,s);
-    return reply(replyToken,[{type:"text",text:"這次放鬆量測連結已過期，請輸入「放鬆測試」繼續。"}]);
+    return reply(replyToken,[{type:"text",text:"這個量測連結已經過期了，傳任何訊息就能接著做。"}]);
   });
   if (t === "我量好了" && relaxAllowed(sub)) {
     const handled=await relaxGuard(sub,replyToken,async()=>{
@@ -834,7 +834,6 @@ function createPreview(p, a) {
       distract:'先關閉通知，把注意力帶回眼前的引導',
       unsure:'照著預先安排好的步驟開始，不用自己挑選內容'
     }[a.barrier];
-    const format = {audio:'語音引導',visual:'視覺節奏提示',text:'短文字引導'}[a.format];
     const kinds = [
       '找到安靜的坐姿，觀察自然呼吸，不必改變節奏',
       '放鬆肩膀與手部，留意接觸椅子的感覺',
@@ -846,9 +845,9 @@ function createPreview(p, a) {
     ];
     return {
       headline:`適合你的 ${p.days} 天・每天 ${minutes} 分鐘練習`,
-      reason:`你選擇在「${context}」練習，偏好「${format}」。因此計畫以固定時段、可完成的小任務為主。`,
-      notes:[focus, a.reminder==='none'?'你選擇不接收提醒':`你偏好的提醒時段：${label(p,'reminder',a.reminder)}（正式版才會提供通知設定）`],
-      tasks:Array.from({length:14},(_,i)=>({day:i+1,title:`第 ${i+1} 天・${kinds[i%kinds.length]}`,detail:`建議 ${minutes} 分鐘，以${format}進行；結束後記下自己的感受即可。`}))
+      reason:`你想在${context}練習，所以計畫都排在固定時段，每天一個做得到的小步驟。`,
+      notes:[focus, a.reminder==='none'?'你選擇不接收提醒':`你偏好的提醒時段：${label(p,'reminder',a.reminder)}`],
+      tasks:Array.from({length:14},(_,i)=>({day:i+1,title:`第 ${i+1} 天・${kinds[i%kinds.length]}`,detail:`${minutes} 分鐘；做完記下一句感受就好。`}))
     };
   }
   const scenes={interview:'面試',presentation:'簡報',pitch:'客戶提案',conversation:'重要對話'};
@@ -879,47 +878,49 @@ function createPreview(p, a) {
 // LINE Flex builders: no user identity, credentials or network calls.
 const relaxColors = { canvas:'#F6F1EA', surface:'#FFFFFF', forest:'#2F7D5B', deep:'#1F5C42', ink:'#1E2A24', muted:'#52655B', sage:'#E4EDE7', line:'#E3DACB' };
 const paragraph = (text, extra = {}) => ({ type:'text', text, wrap:true, size:'md', color:relaxColors.ink, ...extra });
-const action = (label, data, primary = false, uri = false) => ({ type:'button', style:primary?'primary':'link', height:'md', color:primary?relaxColors.deep:relaxColors.deep, action:uri?{type:'uri',label,uri:data}:{type:'postback',label,data,displayText:label} });
+// A line is either plain text or {note:'...'} for the small, muted fine print at the end of a card.
+const relaxLine = x => typeof x === 'string' ? paragraph(x) : paragraph(x.note,{size:'xs',color:relaxColors.muted});
+const action = (label, data, primary = false, uri = false) => ({ type:'button', style:primary?'primary':'link', height:'md', color:relaxColors.deep, action:uri?{type:'uri',label,uri:data}:{type:'postback',label,data,displayText:label} });
 const card = (altText, title, lines, buttons) => ({
   type:'flex', altText,
   contents:{ type:'bubble', size:'mega',
-    header:{type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,paddingAll:'20px',spacing:'sm',contents:[paragraph('DEERLY / LAB',{size:'sm',color:relaxColors.deep,weight:'bold'}),paragraph(title,{size:'xl',weight:'bold'})]},
-    body:{type:'box',layout:'vertical',backgroundColor:relaxColors.surface,paddingAll:'20px',spacing:'md',contents:lines.map(x=>paragraph(x))},
+    header:{type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,paddingAll:'20px',spacing:'sm',contents:[paragraph('DEERLY・14 天放鬆練習',{size:'xs',color:relaxColors.deep,weight:'bold'}),paragraph(title,{size:'xl',weight:'bold'})]},
+    body:{type:'box',layout:'vertical',backgroundColor:relaxColors.surface,paddingAll:'20px',spacing:'md',contents:lines.map(relaxLine)},
     footer:{type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,paddingAll:'16px',spacing:'sm',contents:buttons}
   }
 });
 const relaxPrivacy = [
-  '【放鬆測試資料說明｜relax-pilot-2026-10】\n只供受邀內部測試。記錄五題偏好、LINE 帳號對應、同意版本與時間，以及購買意願時間，用固定規則產生預覽；不與保健品問卷共用同意或答案。僅服務管理者可存取。',
-  '心率量測可略過，不影響方案。前鏡頭影像僅在手機量測頁處理、不上傳；原量測頁另行取得同意並保存數字。只有另選量測時，聊天室才暫時讀取本次合格的新心率，不複製到放鬆問卷。不是壓力、情緒或疾病診斷。',
-  '放鬆測試紀錄自同意起最多保留 30 天，不因作答延長；測試管理者須於獨立測試資料庫執行清理。可輸入「刪除放鬆測試資料」立即刪除問卷與意願；原心率須在量測頁另行刪除。目前無收款、無正式課程、無自動通知；語音／動畫僅記錄偏好。不同意不建立放鬆紀錄。'
+  '【資料怎麼使用】\n我們只記錄你的 5 題回答、同意時間，以及你是否對方案有興趣，用來排出你的練習計畫。這些資料不和 Deerly 其他服務共用，只有 Deerly 管理者看得到。',
+  '心率量測可以略過，不影響計畫。前鏡頭影像只在你的手機上處理、不會上傳；量測頁會另外詢問是否保存數字。心率不是壓力、情緒或疾病的判斷。',
+  '你的回答最多保存 30 天，隨時可以輸入「刪除我的資料」立即刪除（心率紀錄請在量測頁刪除）。目前不收費，也不會自動傳提醒；語音與動畫引導還在準備中。'
 ];
 function relaxWelcome() {
-  return card('14 天放鬆練習｜5 題約 1 分鐘，心率可略過。請閱讀說明後選擇是否同意。','14 天放鬆練習',[
-    '每天 3–10 分鐘，替自己留一點放鬆時間。',
-    '5 題／約 1 分鐘・心率量測可略過',
-    '同意後會記錄偏好與意願，保存最多 30 天，隨時可刪除。僅為預覽，尚未開放購買。'
-  ],[action('同意，開始五題','rlx|start|yes',true),action('完整資料說明','rlx|privacy'),action('先不要','rlx|start|no')]);
+  return card('14 天放鬆練習｜回答 5 題，約 1 分鐘，排出你的練習計畫。','每天幾分鐘，留給自己',[
+    '回答 5 題（約 1 分鐘），幫你排出 14 天、每天 3–10 分鐘的放鬆練習。',
+    '想的話，也可以用手機前鏡頭量一下心跳。',
+    {note:'按下同意後，會保存你的回答最多 30 天，隨時可以刪除。'}
+  ],[action('同意並開始','rlx|start|yes',true),action('資料怎麼使用','rlx|privacy'),action('先不要','rlx|start|no')]);
 }
 function relaxScanCard(data, uri) {
-  return card('選用心率量測｜約 30 秒，可直接略過並取得相同方案。','用前鏡頭看看心跳',[
-    '約 30 秒，不用穿戴裝置。原始影像只在手機量測頁處理。',
-    '不是壓力、情緒或疾病診斷；不量也能取得相同方案。',
-    uri?'請在量測頁另行同意保存。量完按「回聊天室」繼續；無法量測也能略過。':'請先選擇是否量測，量測頁的資料保存同意會另外詢問。'
-  ],[action(uri?'開始心率量測':'選擇量測心率',uri||data('rlx|scan|yes'),true,!!uri),action('略過，看我的方案',data('rlx|scan|skip'))]);
+  return card('要量一下心跳嗎？約 30 秒，也可以略過。','要量一下心跳嗎？',[
+    '用手機前鏡頭，大約 30 秒，不用穿戴裝置。',
+    uri?'量完按「回聊天室」，就會看到你的計畫。':'不量也會拿到一樣的計畫。',
+    {note:'影像只在手機上處理、不上傳；量測頁會另外詢問是否保存。這不是醫療檢測。'}
+  ],[action(uri?'開始量測':'量一下',uri||data('rlx|scan|yes'),true,!!uri),action('略過，直接看計畫',data('rlx|scan|skip'))]);
 }
 function relaxResultCard(preview, bpm) {
-  const observed = Number.isFinite(bpm)?[`本次心率約 ${Math.round(bpm)} 次／分鐘，僅供參考，不影響練習安排。`]:[];
-  return card('你的 14 天放鬆計畫預覽｜'+preview.headline+'。'+preview.reason,'你的 14 天放鬆計畫',[
+  const observed = Number.isFinite(bpm)?[`這次量到的心跳約每分鐘 ${Math.round(bpm)} 下，只是給你參考，不影響計畫。`]:[];
+  return card('你的 14 天放鬆計畫｜'+preview.headline,'你的 14 天放鬆計畫',[
     preview.headline,preview.reason,...preview.notes,...observed,
-    '前兩天可先試短文字練習；語音、動畫與完整課程尚未提供。感到不適請停止，不必憋氣或強迫調整呼吸。'
-  ],[action('完整資料說明','rlx|privacy')]);
+    {note:'練習中覺得不舒服就停下來，不需要憋氣或刻意改變呼吸。'}
+  ],[action('資料怎麼使用','rlx|privacy')]);
 }
 function relaxInterestCard(preview, data) {
-  return card('前兩天練習預覽｜測試價 NT$1,290。尚未開放購買，不會扣款。','先試前兩天',[
+  return card('先試前兩天｜完整 14 天 NT$1,290，目前只開放登記。','先試前兩天',[
     ...preview.tasks.slice(0,2).map(t=>t.title+'\n'+t.detail),
-    '完整 14 天方案測試價 NT$1,290',
-    '尚未開放購買／不會扣款。按鈕只記錄意願，不產生訂單，也不會啟用提醒。'
-  ],[action('這個價格，我有興趣',data('rlx|interest'),true),action('再看一次方案',data('rlx|resume')),action('刪除放鬆測試資料',data('rlx|delete'))]);
+    '完整 14 天計畫 NT$1,290',
+    {note:'目前只開放登記，不會收費，也不會成立訂單。'}
+  ],[action('我有興趣',data('rlx|interest'),true),action('再看一次計畫',data('rlx|resume')),action('刪除我的資料',data('rlx|delete'))]);
 }
 
 // Shared image geometry + per-question postbacks. No LINE calls here.
@@ -1136,14 +1137,14 @@ async function relaxStart(sub: string, token: string) {
   const existing = uid ? await relaxSession(uid) : null;
   if (existing) {
     const data = relaxData(existing);
-    return reply(token, [{ type:"text", text:"你已有一份放鬆測試進度。可繼續，或重新閱讀同意說明後重做。保健品問卷進度仍保留，請用各自訊息中的按鈕作答。",
-      quickReply:quick([{label:"繼續放鬆測試",data:data("rlx|resume")},{label:"重新開始",data:data("rlx|restart")},{label:"刪除測試資料",data:data("rlx|delete")}]) }]);
+    return reply(token, [{ type:"text", text:"你上次的放鬆練習還沒做完。要接著做，還是重新開始？",
+      quickReply:quick([{label:"接著做",data:data("rlx|resume")},{label:"重新開始",data:data("rlx|restart")},{label:"刪除我的資料",data:data("rlx|delete")}]) }]);
   }
   return reply(token, [relaxWelcome()]);
 }
 async function relaxAsk(sub: string, token: string, s: RelaxSession) {
   const data = relaxData(s);
-  if (s.paused) { await relaxMenusTryRestore(sub,s); return reply(token,[{type:"text",text:"放鬆測試已暫停，進度保留。需要時可繼續或刪除。",quickReply:quick([{label:"繼續",data:data("rlx|resume")},{label:"刪除測試資料",data:data("rlx|delete")}])}]); }
+  if (s.paused) { await relaxMenusTryRestore(sub,s); return reply(token,[{type:"text",text:"先暫停囉，進度幫你留著。想繼續時傳任何訊息就可以。",quickReply:quick([{label:"繼續",data:data("rlx|resume")},{label:"刪除我的資料",data:data("rlx|delete")}])}]); }
   if (s.status === "preview") return relaxPreview(sub,token, s);
   if (s.status === "scan") return relaxOfferScan(sub,token, s);
   const q = catalog.relax.questions[s.step];
@@ -1155,7 +1156,7 @@ async function relaxAsk(sub: string, token: string, s: RelaxSession) {
   let menuStatus=relaxMenuTestScope()?(Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED")==="1"?"MENU_STATE_CHANGED":"MENU_SWITCH_OFF"):"MENU_TEST_SCOPE_MISMATCH";
   try{rich=await relaxMenusShow(sub,s);}catch(e){menuStatus=relaxMenuFailure(e);console.error("Test menu fallback",menuStatus);}
   const prompt=`放鬆練習 ${s.step+1}/5\n${q.text}`;
-  if(rich)return reply(token,[{type:"text",text:prompt+(s.step===0?"\n答案在下方大字選單；若鍵盤開著，先收起再展開選單。":"")}]);
+  if(rich)return reply(token,[{type:"text",text:prompt+(s.step===0?"\n請點下方選單作答。":"")}]);
   return reply(token,[{type:"text",text:prompt+`\n請用訊息下方按鈕作答。大字選單狀態：${menuStatus}；可輸入「選單診斷」查詢。`,quickReply:quick(items)}]);
 }
 async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
@@ -1178,8 +1179,8 @@ async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
   const time = Date.parse(last?.scanned_at ?? ""), started = Date.parse(s.scan_started_at);
   if (!last || !Number.isFinite(time) || !Number.isFinite(started) || time < started || time > now || now-time > 15*60e3 ||
       !Number.isFinite(last.quality) || last.quality < 0.35 || !Number.isFinite(last.bpm) || last.bpm < 30 || last.bpm > 220) {
-    return reply(token,[{type:"text",text:"尚未取得本次有效的新心率。相機拒絕、光線不足或未保存都沒關係，可以直接略過。",
-      quickReply:quick([{label:"再量一次",uri:relaxScanUrl(s)},{label:"略過，看方案",data:relaxData(s)("rlx|scan|skip")}])}]);
+    return reply(token,[{type:"text",text:"這次沒有量到清楚的心跳。沒關係，可以再量一次，或直接看計畫。",
+      quickReply:quick([{label:"再量一次",uri:relaxScanUrl(s)},{label:"直接看計畫",data:relaxData(s)("rlx|scan|skip")}])}]);
   }
   const next = await relaxUpdate(s,{status:"preview"});
   return relaxPreview(sub,token,next,last.bpm);
@@ -1190,7 +1191,7 @@ async function relaxPostback(sub: string, token: string, raw: string) {
   const [prefix,kind,detail,value] = data.split("|");
   if (prefix !== "rlx") return;
   if (kind === "privacy") return reply(token,relaxPrivacy.map(text=>({type:"text",text})));
-  if (kind === "start" && detail === "no") return reply(token,[{type:"text",text:"好的，不會建立新的放鬆測試紀錄。既有進度如需刪除，請輸入「刪除放鬆測試資料」。"}]);
+  if (kind === "start" && detail === "no") return reply(token,[{type:"text",text:"好的，沒有保存任何資料。想試的時候，傳任何訊息給我就可以。"}]);
   if (kind === "start" && detail === "yes") {
     const uid = await findUser(sub,true);
     if (!uid) throw new Error("RELAX_USER_MISSING");
@@ -1240,7 +1241,7 @@ async function relaxPostback(sub: string, token: string, raw: string) {
   if (kind === "done") return relaxScanDone(sub,token,s);
   if (kind === "interest" && s.status === "preview") {
     if (!s.interest_clicked_at) await relaxUpdate(s,{interest_clicked_at:new Date().toISOString()});
-    return reply(token,[{type:"text",text:"謝謝，已記下你對 NT$1,290 方案的興趣。這不是訂單、沒有收款，也未啟用每日通知。"}]);
+    return reply(token,[{type:"text",text:"謝謝，已幫你登記！目前不會收費，也沒有成立訂單。"}]);
   }
   return relaxAsk(sub,token,s);
 }
@@ -1256,7 +1257,7 @@ async function relaxDelete(sub: string, token: string, session?: RelaxSession, r
     if (r.error) throw r.error;
     if (session && !r.data?.length) throw new Error("RELAX_STALE_ACTION");
   }
-  if (respond) return reply(token,[{type:"text",text:"已刪除放鬆問卷、同意及意願紀錄；保健品與原心率紀錄保持不變。原心率請到量測頁另行刪除。"}]);
+  if (respond) return reply(token,[{type:"text",text:"已刪除你的放鬆練習回答與紀錄。心率紀錄請到量測頁刪除。"}]);
 }
 // In-instance ordering + DB revision comparisons protect rapid clicks across instances.
 const relaxQueues = new Map<string, Promise<unknown>>();
@@ -1266,8 +1267,8 @@ async function relaxGuard(sub: string, token: string, work: () => Promise<unknow
     // Do not log answer values, LINE IDs or raw DB errors.
     console.error("Relax pilot operation failed");
     const text=e instanceof Error && e.message==="RELAX_STALE_ACTION"
-      ?"進度已更新，請輸入「放鬆測試」繼續。"
-      :"剛才沒能完成，請輸入「放鬆測試」恢復進度；也可輸入「刪除放鬆測試資料」。";
+      ?"進度剛剛更新過，傳任何訊息就能接著做。"
+      :"剛才沒有完成，傳任何訊息就能接著做；也可以輸入「刪除我的資料」。";
     return reply(token,[{type:"text",text}]);
   });
   relaxQueues.set(sub,current);

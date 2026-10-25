@@ -1,6 +1,6 @@
 {
   "type": "flex",
-  "altText": "你的 14 天放鬆計畫預覽｜適合你的 14 天・每天 5 分鐘練習。你選擇在「下班後」練習，偏好「短文字引導」。因此計畫以固定時段、可完成的小任務為主。",
+  "altText": "你的 14 天放鬆計畫｜適合你的 14 天・每天 5 分鐘練習",
   "contents": {
     "type": "bubble",
     "size": "mega",
@@ -13,9 +13,9 @@
       "contents": [
         {
           "type": "text",
-          "text": "DEERLY / LAB",
+          "text": "DEERLY・14 天放鬆練習",
           "wrap": true,
-          "size": "sm",
+          "size": "xs",
           "color": "#1F5C42",
           "weight": "bold"
         },
@@ -45,7 +45,7 @@
         },
         {
           "type": "text",
-          "text": "你選擇在「下班後」練習，偏好「短文字引導」。因此計畫以固定時段、可完成的小任務為主。",
+          "text": "你想在下班後練習，所以計畫都排在固定時段，每天一個做得到的小步驟。",
           "wrap": true,
           "size": "md",
           "color": "#1E2A24"
@@ -66,10 +66,10 @@
         },
         {
           "type": "text",
-          "text": "前兩天可先試短文字練習；語音、動畫與完整課程尚未提供。感到不適請停止，不必憋氣或強迫調整呼吸。",
+          "text": "練習中覺得不舒服就停下來，不需要憋氣或刻意改變呼吸。",
           "wrap": true,
-          "size": "md",
-          "color": "#1E2A24"
+          "size": "xs",
+          "color": "#52655B"
         }
       ]
     },
@@ -87,9 +87,9 @@
           "color": "#1F5C42",
           "action": {
             "type": "postback",
-            "label": "完整資料說明",
+            "label": "資料怎麼使用",
             "data": "rlx|privacy",
-            "displayText": "完整資料說明"
+            "displayText": "資料怎麼使用"
           }
         }
       ]

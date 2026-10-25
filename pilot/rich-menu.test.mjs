@@ -128,7 +128,7 @@ test('typed continue resumes pilot instead of legacy supplement quiz on the isol
 
 test('Rich Menu is the sole answer surface on success; later questions omit repeated instructions',async()=>{
  const f=fixture({menu:true});await f.begin();
- let message=f.replies.at(-1)[0];assert.equal(message.quickReply,undefined);assert.match(message.text,/答案在下方大字選單/);
+ let message=f.replies.at(-1)[0];assert.equal(message.quickReply,undefined);assert.match(message.text,/請點下方選單作答/);
  for(let step=0;step<4;step++){
   const menu=f.menuState.menus.get(f.menuState.assigned);await f.post(menu.areas[0].action.data);
   message=f.replies.at(-1)[0];assert.equal(message.quickReply,undefined);
