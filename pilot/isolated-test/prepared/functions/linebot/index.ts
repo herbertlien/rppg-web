@@ -723,6 +723,11 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 
 async function onText(sub: string, replyToken: string, text: string) {
   const t = text.trim();
+  if(["繼續","繼續放鬆測試"].includes(t) && relaxMenuTestScope() && relaxAllowed(sub))return relaxGuard(sub,replyToken,async()=>{
+    const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
+    if(!s)return relaxStart(sub,replyToken);
+    return relaxAsk(sub,replyToken,s.paused?await relaxUpdate(s,{paused:false}):s);
+  });
   if(t === "選單診斷")return relaxGuard(sub,replyToken,()=>relaxMenuDiagnose(sub,replyToken));
   if(t === "收起放鬆選單")return relaxGuard(sub,replyToken,async()=>{
     if(!relaxMenuTestScope())return reply(replyToken,[{type:"text",text:"這個操作只適用測試帳號。"}]);

@@ -46,3 +46,5 @@ PLAYWRIGHT_MODULE=file:///tmp/rppg-menu-render/node_modules/playwright-core/inde
 `relax-menu-diagnostics-v2` 新增「選單診斷」聊天室指令（僅受邀測試者）：只核對環境旗標、bot 身分、資料欄位與第一題圖片，不建立、上傳或連結選單。不回傳 Token、Secret、使用者 ID 或問卷答案。一般第一題備援回覆會顯示 `MENU_SWITCH_OFF`、`MENU_IMAGE_HTTP_404`、`MENU_CREATE_HTTP_400`、`MENU_UPLOAD_HTTP_...`、`MENU_LINK_HTTP_...` 或資料庫錯誤代碼，便於定位。GET linebot 亦回傳 build 與兩個開關布林值，供確認部署版本；不執行外部 API 操作。
 
 這是診斷補強，不代表尚未取得日誌的實際故障已修復。只需更新測試 linebot，不用再上傳網站或重跑 SQL。70 項本機測試通過；真實故障須依測試帳號回傳的狀態確認。
+
+測試入口修正：受邀測試者在指定測試帳號輸入文字「繼續」或「繼續放鬆測試」時，現在會恢復五題流程，不再落入舊保健品問卷的一般文字分支。正式環境路由保持原狀。新增雙問卷共存與正式範圍不變的回歸測試。需更新測試 Function 後生效；原有「選單診斷」指令可先用來確認旗標及圖片存取狀態。

@@ -100,3 +100,12 @@ test('fallback reports upload and link stages and HTTP status without disclosing
   const text=JSON.stringify(f.replies.at(-1));assert.ok(text.includes(code));assert.ok(!text.includes('synthetic-test-secret'));assert.ok(!text.includes('fake-user'));
  }
 });
+
+test('typed continue resumes pilot instead of legacy supplement quiz on the isolated test bot',async()=>{
+ const f=fixture({menu:true});f.tables.quiz_sessions.push({user_id:'fake-user',cur:'sex',answers:{age:'30_34'},multi:[],history:['age']});
+ const original=JSON.stringify(f.tables.quiz_sessions);await f.begin();await f.click('rlx|pause');
+ await f.text('繼續');assert.equal(f.session().paused,false);assert.match(JSON.stringify(f.replies.at(-1)),/放鬆練習 1\/5/);
+ assert.equal(JSON.stringify(f.tables.quiz_sessions),original);assert.ok(f.menuState.assigned);
+ const legacy=fixture({menu:true,productionScope:true});legacy.tables.quiz_sessions.push({user_id:'fake-user',cur:'sex',answers:{age:'30_34'},multi:[],history:['age']});
+ await legacy.text('繼續');assert.match(JSON.stringify(legacy.replies.at(-1)),/性別/);assert.equal(legacy.menuRequests.filter(r=>r.method!=='GET').length,1); // existing original flow request, no pilot creation
+});
