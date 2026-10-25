@@ -3,18 +3,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { catalog,createPreview } from './products.js';
-import { relaxColors,relaxWelcome,relaxScanCard,relaxResultCard,relaxInterestCard,relaxHeartCard } from './relax-flex.js';
+import { relaxColors,relaxWelcome,relaxScanCard,relaxReport,relaxTodayCard,relaxHeartCard } from './relax-flex.js';
 import { relaxFlowFromSearch,notifyRelaxScan } from './relax-liff.js';
 const flow='12345678-1234-4234-8234-123456789abc';
 const data=x=>`${x}~${flow}~1`;
 const answers=Object.fromEntries(catalog.relax.questions.map(q=>[q.id,q.options[0].value]));
 const preview=createPreview(catalog.relax,answers);
-const cards=[relaxWelcome(),relaxScanCard(data),relaxScanCard(data,`https://liff.line.me/example/?relaxPilot=${flow}`),relaxResultCard(preview),relaxHeartCard(80,74),relaxHeartCard(80),relaxInterestCard(preview,data)];
+const cards=[relaxWelcome(),relaxScanCard(data),relaxScanCard(data,`https://liff.line.me/example/?relaxPilot=${flow}`),relaxHeartCard(80,74),relaxHeartCard(80),relaxHeartCard(80,74,{before:82,after:75}),relaxReport(preview,data,{before:80,after:74})[1],relaxReport(preview,data)[1],relaxTodayCard(preview,1,data),relaxTodayCard(preview,14,data)];
 function visit(node,fn){if(!node||typeof node!=='object')return;fn(node);for(const v of Object.values(node))if(Array.isArray(v))v.forEach(x=>visit(x,fn));else visit(v,fn);}
 test('Flex payloads follow bounded LINE bubble/text/action structure',()=>{
   for(const card of cards){
     assert.equal(card.type,'flex');assert.ok(card.altText.length>0&&card.altText.length<=400);
-    assert.equal(card.contents.type,'bubble');assert.ok(Buffer.byteLength(JSON.stringify(card.contents))<30000);
+    assert.ok(['bubble','carousel'].includes(card.contents.type));assert.ok(Buffer.byteLength(JSON.stringify(card.contents))<30000);
     let primaries=0;
     visit(card.contents,n=>{
       if(n.type==='text'){assert.ok(n.text.length>0&&n.text.length<=2000);assert.equal(n.wrap,true);assert.ok(!n.maxLines,'do not clip enlarged text');}
@@ -37,7 +37,7 @@ test('personalization stays deterministic and independent of heart rate across a
     if(i===5){const p=createPreview(catalog.relax,a);assert.equal(p.tasks.length,14);assert.match(p.headline,new RegExp(a.minutes+' 分鐘'));assert.ok(!JSON.stringify(p).includes('undefined'));assert.deepEqual(createPreview(catalog.relax,a),p);count++;return;}
     const q=catalog.relax.questions[i];for(const o of q.options)walk(i+1,{...a,[q.id]:o.value});
   };walk(0,{});assert.equal(count,432);
-  assert.deepEqual(relaxResultCard(preview).contents.body.contents.slice(0,4),relaxResultCard(preview,99).contents.body.contents.slice(0,4));
+  assert.deepEqual(relaxReport(preview,data,{before:99,after:80})[1].contents.contents.slice(1),relaxReport(preview,data)[1].contents.contents.map((c,i)=>({...c,header:{...c.header,contents:[{...c.header.contents[0],text:c.header.contents[0].text.replace(/^\d\/3/,`${i+2}/4`)},c.header.contents[1]]}})),'heart rate never changes the plan cards');
 });
 test('LIFF parses only valid scoped flow IDs, including liff.state redirects',()=>{
   assert.equal(relaxFlowFromSearch(''),null);assert.equal(relaxFlowFromSearch('?relaxPilot=bad'),null);

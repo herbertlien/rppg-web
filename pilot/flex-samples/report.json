@@ -1,0 +1,717 @@
+{
+  "type": "flex",
+  "altText": "你的放鬆報告｜下班切換型・適合你的 14 天・每天 5 分鐘練習",
+  "contents": {
+    "type": "carousel",
+    "contents": [
+      {
+        "type": "bubble",
+        "size": "mega",
+        "header": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#F6F1EA",
+          "paddingAll": "18px",
+          "spacing": "xs",
+          "contents": [
+            {
+              "type": "text",
+              "text": "1/4・放鬆反應",
+              "wrap": true,
+              "size": "xs",
+              "color": "#1F5C42",
+              "weight": "bold"
+            },
+            {
+              "type": "text",
+              "text": "這一分鐘，你的心跳",
+              "wrap": true,
+              "size": "lg",
+              "color": "#1E2A24",
+              "weight": "bold"
+            }
+          ]
+        },
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#FFFFFF",
+          "paddingAll": "18px",
+          "spacing": "md",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "backgroundColor": "#E4EDE7",
+              "cornerRadius": "12px",
+              "paddingAll": "14px",
+              "contents": [
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "78",
+                      "size": "3xl",
+                      "weight": "bold",
+                      "color": "#52655B",
+                      "align": "center",
+                      "wrap": true
+                    },
+                    {
+                      "type": "text",
+                      "text": "放鬆前",
+                      "size": "xs",
+                      "color": "#52655B",
+                      "align": "center",
+                      "wrap": true
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "→",
+                  "size": "xl",
+                  "color": "#52655B",
+                  "align": "center",
+                  "gravity": "center",
+                  "flex": 0,
+                  "wrap": true
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "71",
+                      "size": "3xl",
+                      "weight": "bold",
+                      "color": "#1F5C42",
+                      "align": "center",
+                      "wrap": true
+                    },
+                    {
+                      "type": "text",
+                      "text": "放鬆後",
+                      "size": "xs",
+                      "color": "#52655B",
+                      "align": "center",
+                      "wrap": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "慢了 7 下。慢慢呼吸時，心跳跟著放緩是很常見的反應，代表你這一分鐘真的停下來了。",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            },
+            {
+              "type": "text",
+              "text": "只是自我觀察，不是醫療檢測，也不影響你的計畫；睡眠、咖啡、量的時間都會影響數字。",
+              "wrap": true,
+              "size": "xs",
+              "color": "#52655B"
+            }
+          ]
+        }
+      },
+      {
+        "type": "bubble",
+        "size": "mega",
+        "header": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#F6F1EA",
+          "paddingAll": "18px",
+          "spacing": "xs",
+          "contents": [
+            {
+              "type": "text",
+              "text": "2/4・你的放鬆類型",
+              "wrap": true,
+              "size": "xs",
+              "color": "#1F5C42",
+              "weight": "bold"
+            },
+            {
+              "type": "text",
+              "text": "下班切換型",
+              "wrap": true,
+              "size": "lg",
+              "color": "#1E2A24",
+              "weight": "bold"
+            }
+          ]
+        },
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#FFFFFF",
+          "paddingAll": "18px",
+          "spacing": "md",
+          "contents": [
+            {
+              "type": "text",
+              "text": "你想在下班後練習，每天 5 分鐘，過去最難的是「時間總是不夠」。",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            },
+            {
+              "type": "text",
+              "text": "所以你的計畫會：",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1F5C42",
+              "weight": "bold"
+            },
+            {
+              "type": "text",
+              "text": "・排在下班後的固定時段，當作工作和生活的分界",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            },
+            {
+              "type": "text",
+              "text": "・忙的日子有 3 分鐘短版，不追求做滿",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            },
+            {
+              "type": "text",
+              "text": "・錯過不用補做，隔天照常就好",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            }
+          ]
+        }
+      },
+      {
+        "type": "bubble",
+        "size": "mega",
+        "header": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#F6F1EA",
+          "paddingAll": "18px",
+          "spacing": "xs",
+          "contents": [
+            {
+              "type": "text",
+              "text": "3/4・14 天地圖",
+              "wrap": true,
+              "size": "xs",
+              "color": "#1F5C42",
+              "weight": "bold"
+            },
+            {
+              "type": "text",
+              "text": "兩週，一步一步來",
+              "wrap": true,
+              "size": "lg",
+              "color": "#1E2A24",
+              "weight": "bold"
+            }
+          ]
+        },
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#FFFFFF",
+          "paddingAll": "18px",
+          "spacing": "md",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "spacing": "xs",
+              "contents": [
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#1F5C42",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "1",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#FFFFFF",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#E4EDE7",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "2",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#E4EDE7",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "3",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#E4EDE7",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "4",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#E4EDE7",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "5",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#E4EDE7",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "6",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#E4EDE7",
+                  "borderWidth": "2px",
+                  "borderColor": "#2F7D5B",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "7",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "bold"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "spacing": "xs",
+              "contents": [
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#F6F1EA",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "8",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#F6F1EA",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "9",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#F6F1EA",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "10",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#F6F1EA",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "11",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#F6F1EA",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "12",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#F6F1EA",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "13",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "regular"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "vertical",
+                  "flex": 1,
+                  "cornerRadius": "6px",
+                  "paddingAll": "4px",
+                  "backgroundColor": "#F6F1EA",
+                  "borderWidth": "2px",
+                  "borderColor": "#2F7D5B",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "14",
+                      "size": "xs",
+                      "align": "center",
+                      "wrap": true,
+                      "color": "#1E2A24",
+                      "weight": "bold"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "第 1 週・認識身體\n觀察呼吸、放鬆肩頸，找到你的節奏",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            },
+            {
+              "type": "text",
+              "text": "第 2 週・放進日常\n在任務之間留空白，練習隨時切換",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            },
+            {
+              "type": "text",
+              "text": "第 7、14 天・前後對比\n再量一次，和今天的你比一比",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1F5C42",
+              "weight": "bold"
+            }
+          ]
+        }
+      },
+      {
+        "type": "bubble",
+        "size": "mega",
+        "header": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#F6F1EA",
+          "paddingAll": "18px",
+          "spacing": "xs",
+          "contents": [
+            {
+              "type": "text",
+              "text": "4/4・今天就開始",
+              "wrap": true,
+              "size": "xs",
+              "color": "#1F5C42",
+              "weight": "bold"
+            },
+            {
+              "type": "text",
+              "text": "第 1 天・5 分鐘",
+              "wrap": true,
+              "size": "lg",
+              "color": "#1E2A24",
+              "weight": "bold"
+            }
+          ]
+        },
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#FFFFFF",
+          "paddingAll": "18px",
+          "spacing": "md",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "spacing": "md",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "1",
+                  "size": "md",
+                  "weight": "bold",
+                  "color": "#1F5C42",
+                  "flex": 0,
+                  "wrap": true
+                },
+                {
+                  "type": "text",
+                  "text": "找個能坐好的地方，雙腳踩地",
+                  "wrap": true,
+                  "size": "sm",
+                  "color": "#1E2A24"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "spacing": "md",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "2",
+                  "size": "md",
+                  "weight": "bold",
+                  "color": "#1F5C42",
+                  "flex": 0,
+                  "wrap": true
+                },
+                {
+                  "type": "text",
+                  "text": "觀察自然呼吸，不必改變節奏",
+                  "wrap": true,
+                  "size": "sm",
+                  "color": "#1E2A24"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "spacing": "md",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "3",
+                  "size": "md",
+                  "weight": "bold",
+                  "color": "#1F5C42",
+                  "flex": 0,
+                  "wrap": true
+                },
+                {
+                  "type": "text",
+                  "text": "結束後，記下一句現在的感受",
+                  "wrap": true,
+                  "size": "sm",
+                  "color": "#1E2A24"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "backgroundColor": "#F6F1EA",
+              "cornerRadius": "12px",
+              "paddingAll": "12px",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "完整 14 天計畫",
+                  "wrap": true,
+                  "size": "xs",
+                  "color": "#52655B"
+                },
+                {
+                  "type": "text",
+                  "text": "NT$1,290",
+                  "wrap": true,
+                  "size": "xl",
+                  "color": "#1E2A24",
+                  "weight": "bold"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "目前只開放登記，不會收費，也不會成立訂單。",
+              "wrap": true,
+              "size": "xs",
+              "color": "#52655B"
+            }
+          ]
+        },
+        "footer": {
+          "type": "box",
+          "layout": "vertical",
+          "backgroundColor": "#F6F1EA",
+          "paddingAll": "12px",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "button",
+              "style": "primary",
+              "height": "md",
+              "color": "#1F5C42",
+              "action": {
+                "type": "postback",
+                "label": "我有興趣",
+                "data": "rlx|interest~00000000-0000-4000-8000-000000000000~0",
+                "displayText": "我有興趣"
+              }
+            },
+            {
+              "type": "button",
+              "style": "link",
+              "height": "md",
+              "color": "#1F5C42",
+              "action": {
+                "type": "postback",
+                "label": "刪除我的資料",
+                "data": "rlx|delete~00000000-0000-4000-8000-000000000000~0",
+                "displayText": "刪除我的資料"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

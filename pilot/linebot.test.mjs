@@ -29,12 +29,12 @@ test('five questions, invalid options, back, pause, resume and repeated consent 
   await f.text('放鬆測試');await f.click('rlx|resume');assert.equal(f.session().paused,false);
   for(let i=0;i<5;i++)await f.click(`rlx|answer|${i}|${catalog.relax.questions[i].options[0].value}`);
   assert.equal(f.session().status,'scan');assert.equal(Object.keys(f.session().answers).length,5);
-  assert.match(serialized(f.replies.at(-1)),/要量一下心跳嗎/);
+  assert.match(serialized(f.replies.at(-1)),/看看你放鬆前後的心跳/);
 });
 test('skip requires no scan read and interest is recorded once, with no order or reminders',async()=>{
   const f=fixture();await f.complete();await f.click('rlx|scan|skip');assert.equal(f.session().status,'preview');
   assert.equal(f.calls.filter(c=>c.table==='scans').length,0);
-  assert.equal(f.replies.at(-1).filter(m=>m.type==='flex').length,2);
+  assert.equal(f.replies.at(-1).filter(m=>m.type==='flex').length,1);assert.equal(f.replies.at(-1)[1].contents.type,'carousel');
   assert.match(serialized(f.replies.at(-1)),/只開放登記，不會收費/);
   const interest=f.scoped('rlx|interest');await Promise.all([f.post(interest),f.post(interest)]);
   const time=f.session().interest_clicked_at;await f.click('rlx|interest');assert.equal(f.session().interest_clicked_at,time);
@@ -54,7 +54,7 @@ test('fresh high quality scan only displays transiently; scoped LIFF completion 
   f.tables.scans.push({user_id:'fake-user',bpm:72,quality:0.8,scanned_at:new Date().toISOString()});
   await f.text('放鬆量測完成 old-flow');assert.equal(f.session().status,'scan');
   const done=`放鬆量測完成 ${f.session().flow_id}`;await f.text(done);assert.equal(f.session().status,'preview');
-  assert.match(serialized(f.replies.at(-1)),/每分鐘 72 下/);assert.doesNotMatch(serialized(f.session()),/bpm|quality/);
+  assert.match(serialized(f.replies.at(-1)),/你的心跳.*"72"/);assert.doesNotMatch(serialized(f.session()),/bpm|quality/);
   const rev=f.session().revision;await f.text(done);assert.equal(f.session().revision,rev);
 });
 test('pilot and supplement/member state coexist; deletion and restarting never touch original data',async()=>{
@@ -106,7 +106,8 @@ test('before and after breathing readings come back as one comparison card; plan
   f.tables.scans.push({user_id:'fake-user',bpm:82,quality:0.8,scanned_at:new Date(t-90e3).toISOString()},{user_id:'fake-user',bpm:75,quality:0.7,scanned_at:new Date(t-1e3).toISOString()});
   f.session().scan_started_at=new Date(t-120e3).toISOString();
   await f.text('我量好了');assert.equal(f.session().status,'preview');
-  const out=serialized(f.replies.at(-1));assert.match(out,/82 → 75/);assert.match(out,/慢了 7 下/);assert.equal(f.replies.at(-1).length,3);
+  const out=serialized(f.replies.at(-1));assert.match(out,/"82".*"75"/);assert.match(out,/慢了 7 下/);assert.equal(f.replies.at(-1)[1].contents.contents.length,4);
   const plain=fixture();await plain.complete();await plain.click('rlx|scan|skip');
-  assert.deepEqual(f.replies.at(-1)[1],plain.replies.at(-1)[0],'heart rate never changes the plan');
+  const bodies=m=>m[1].contents.contents.map(c=>c.body);
+  assert.deepEqual(serialized(bodies(f.replies.at(-1)).slice(1)).replace(/~[^~"]+~\d+/g,''),serialized(bodies(plain.replies.at(-1))).replace(/~[^~"]+~\d+/g,''),'heart rate never changes the plan');
 });

@@ -37,6 +37,24 @@
   body.relaxpilot #bat,body.relaxpilot #watchTip,body.relaxpilot #csv,body.relaxpilot #relaxPilotBack{display:none!important}
   /* 底部「回主頁」一直都在，量到一半或量完都能直接回去 */
   body.relaxpilot #dock{display:block!important}body.relaxpilot{padding-bottom:110px}
+  /* 放鬆練習的三步驟引導：進度條、步驟卡、全畫面呼吸圓圈 */
+  body.relaxpilot h1,body.relaxpilot #relax,body.relaxpilot #relaxPilotReturn,body.relaxpilot .hrbox,body.relaxpilot #q,body.relaxpilot #cmp,body.relaxpilot #histTable,body.relaxpilot #weekly{display:none!important}
+  .rpsteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 10px}
+  .rpsteps div i{display:block;height:6px;border-radius:3px;background:rgba(127,127,127,.25);margin-bottom:6px}
+  .rpsteps div span{font-size:13px;color:var(--mut)}
+  .rpsteps div.on i,.rpsteps div.done i{background:var(--ac)}
+  .rpsteps div.on span{color:var(--ac);font-weight:700}.rpsteps div.done span{color:var(--ac)}
+  #rpTitle{font-size:24px;margin:4px 0 12px}
+  .rpcard{text-align:center;padding:22px 16px}
+  .rpnext{background:var(--ac);color:#fff;border-radius:16px;padding:20px 16px;margin-top:14px;text-align:left}
+  .rpnext b{display:block;font-size:24px;line-height:1.35;margin:4px 0 8px}
+  .rpnext button{background:#fff;color:var(--ac);font-weight:800}
+  .rpnext .rpauto{text-align:center;font-size:13px;margin-top:8px;opacity:.9}
+  #rpCircle{width:200px;height:200px;border-radius:50%;background:var(--ac);color:#fff;margin:30px auto;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:800;transition:transform 4s ease-in-out}
+  #rpCircle.in{transform:scale(1.3)}
+  .rpcmp{display:flex;justify-content:space-around;align-items:center;margin:8px 0 14px}
+  .rpcmp div{display:flex;flex-direction:column;align-items:center}.rpcmp b{font-size:56px;line-height:1.1}.rpcmp span{font-size:13px;color:var(--mut)}
+  .rpdelta{display:inline-block;padding:6px 16px;border-radius:16px;background:rgba(47,125,91,.15);color:var(--ac);font-size:18px;font-weight:700}
   .bat{margin-top:14px;text-align:left}
   .batbar{display:flex;gap:6px;margin:6px 0}
   .batbar i{flex:1;height:14px;border-radius:7px;background:rgba(127,127,127,.25)}
@@ -57,8 +75,29 @@
 <body>
 <h1>今日電量</h1>
 <p class="mut" id="intro" style="text-align:center">先靜坐一分鐘再量。明亮光線下正對鏡頭、手機放穩，30 秒別說話。<br>影像不會儲存，只留下數字。</p>
+<div id="rp" hidden><div class="rpsteps"><div id="rps1"><i></i><span>1 量放鬆前</span></div><div id="rps2"><i></i><span>2 慢呼吸</span></div><div id="rps3"><i></i><span>3 再量一次</span></div></div><h2 id="rpTitle">第 1 步：先量一次</h2></div>
 <div class="box"><video id="v" playsinline muted></video><canvas id="ov"></canvas><div id="ovtxt" hidden></div><div id="qc" hidden><span id="qf"></span><span id="ql"></span><span id="qm"></span></div></div>
 <button id="go">開始（會要求使用前鏡頭）</button>
+<div class="card rpcard" id="rpNext" hidden>
+  <div class="mut">放鬆前的心跳</div>
+  <div><span class="hrnum" id="rpBefore">--</span> <span class="hrunit">次／分</span></div>
+  <div class="mut">第 1 次記下了</div>
+  <div class="rpnext"><span>接下來・第 2 步</span><b>跟著圓圈，慢慢呼吸 1 分鐘</b><span>吸氣 4 秒、吐氣 6 秒。手機維持在臉前方，呼吸結束會自動幫你量第二次。</span>
+  <button id="rpBreathBtn">開始呼吸</button><div class="rpauto" id="rpAuto"></div></div>
+</div>
+<div class="card rpcard" id="rpBreath" hidden>
+  <div id="rpCircle">吸氣</div>
+  <div style="font-size:18px">還剩 <b id="rpLeft" style="font-size:40px;color:var(--ac)">60</b> 秒</div>
+  <p>呼吸結束後，<b>會自動開始第二次量測</b>。<br>請把手機維持在臉前方。</p>
+</div>
+<div class="card rpcard" id="rpResult" hidden>
+  <div class="rpcmp"><div><b id="rpB">--</b><span>放鬆前</span></div><span aria-hidden="true" style="font-size:28px">→</span><div><b id="rpA" style="color:var(--ac)">--</b><span>放鬆後</span></div></div>
+  <div class="rpdelta" id="rpDelta"></div>
+  <p id="rpNote"></p>
+  <p class="mut" id="relaxPilotStatus" role="status" aria-live="polite"></p>
+  <button id="rpChat">回聊天室看報告</button>
+  <button id="rpAgain" class="ghost">再做一次</button>
+</div>
 <div class="card">
   <div id="st" class="mut">尚未開始</div>
   <div class="hrbox"><span class="hrnum" id="hr">--</span> <span class="hrunit" id="hrunit"></span></div>
@@ -79,7 +118,6 @@
 </div>
 <div class="card" id="relaxPilotReturn" hidden>
   <strong>14 天放鬆練習・選用心率量測</strong>
-  <p id="relaxPilotStatus" role="status" aria-live="polite">量完回聊天室接續；不同意保存、相機無法開啟或光線不足，都可以直接回去略過。</p>
   <button id="relaxPilotBack" class="ghost">回聊天室，繼續或略過</button>
 </div>
 <div class="card" id="relax" hidden>
@@ -210,7 +248,7 @@ const grab = document.createElement('canvas'); const gctx = grab.getContext('2d'
 const BASE = './vendor';
 const MODEL = './vendor/face_landmarker.task';
 const renderDyn = () => { $('env3').textContent = '階段: ' + stageText + (camInfo ? '\n鏡頭: ' + camInfo : ''); };
-const stage = s => { $('st').textContent = s; stageText = s; renderDyn(); };
+const stage = s => { if (document.body.classList.contains('relaxpilot') && !/失敗/.test(s)) s = /就緒，可以開始/.test(s) ? '準備好了，可以開始' : /模型|WASM|偵測器/.test(s) ? '準備中…' : s; $('st').textContent = s; stageText = s; renderDyn(); };
 const withTimeout = (p, ms, name) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(name + ' 逾時（' + ms / 1000 + ' 秒）')), ms))]);
 
 async function fetchModel() {
@@ -391,6 +429,7 @@ async function run() {
 
 // ===== 一分鐘放鬆挑戰（放鬆後的量測不儲存、不計入平常心率）=====
 function offerRelax(r) {
+  if (relaxPilotFlow) return pilotAfterFirst(r);
   $('relax').hidden = r.quality < QMIN;
   const ok = r.quality >= QMIN && cloud.on;
   $('dock').hidden = !ok; document.body.classList.toggle('hasdock', ok);
@@ -411,6 +450,7 @@ $('relaxBtn').onclick = async () => {
   relaxMode = true; await run(); relaxMode = false;
 };
 function relaxDone(r) {
+  if (relaxPilotFlow) return pilotAfterSecond(r);
   document.querySelector('.box').hidden = true; $('intro').hidden = true;
   if (cloud.on) { $('dock').hidden = false; document.body.classList.add('hasdock'); }
   $('hr').textContent = Math.round(beforeRes.bpm); $('hrunit').textContent = '次／分'; $('q').textContent = '上方是放鬆前的結果';
@@ -418,7 +458,6 @@ function relaxDone(r) {
   if (r.quality < QMIN) { $('relaxRes').textContent = '放鬆後這次訊號不夠穩，沒辦法比較。可以再試一次。'; $('relaxBtn').hidden = false; $('relaxBtn').disabled = false; return; }
   const d = Math.round(beforeRes.bpm - r.bpm);
   $('relaxRes').textContent = '放鬆前 ' + Math.round(beforeRes.bpm) + ' → 放鬆後 ' + Math.round(r.bpm) + '（' + (d > 0 ? '慢了 ' + d + ' 下' : d < 0 ? '快了 ' + (-d) + ' 下' : '差不多') + '）。單次差異也可能來自量測誤差。';
-  if (relaxPilotFlow) onScanDone(); // the 14-day pilot keeps the after-breathing reading for the chat comparison
 }
 
 // 一開頁就先載入模型，使用者讀說明的時間就不浪費
@@ -436,6 +475,67 @@ $('csv').onclick = () => {
 // ===== LINE 登入與雲端儲存（只送「時間、心率、品質」等數字，不送影像）=====
 const relaxPilotFlow = relaxFlowFromSearch(location.search);
 let relaxSaved = null, relaxNotified = false;
+// ===== 14 天放鬆練習：量 → 慢呼吸 1 分鐘 → 再量，一步一步帶著做 =====
+let pilotFirst = null, pilotPending = false, pilotTimer = null, pilotBreathing = false, pilotGotSecond = false;
+const pause = ms => new Promise(r => setTimeout(r, ms));
+function pilotStep(n, title) {
+  [1, 2, 3].forEach(i => { $('rps' + i).className = i < n ? 'done' : i === n ? 'on' : ''; });
+  $('rpTitle').textContent = title;
+}
+function pilotAfterFirst(r) {
+  if (r.quality < QMIN) { $('go').textContent = '再量一次'; return; } // show() already explains what to fix
+  pilotFirst = r; $('go').hidden = true;
+  document.querySelector('.box').hidden = true; $('intro').hidden = true; window.scrollTo(0, 0);
+  $('rpBefore').textContent = Math.round(r.bpm); $('rpNext').hidden = false; pilotStep(2, '第 1 步完成');
+  if (cloud.on && !cloud.consented) {
+    pilotPending = true; $('rpBreathBtn').disabled = true;
+    $('rpAuto').textContent = '請先在下方同意保存數字，才能把對比結果帶回聊天室。';
+    return;
+  }
+  pilotCountdown();
+}
+function pilotCountdown() {
+  pilotPending = false; $('rpBreathBtn').disabled = false;
+  let n = 5; $('rpAuto').textContent = n + ' 秒後自動開始';
+  clearInterval(pilotTimer);
+  pilotTimer = setInterval(() => { n--; if (n <= 0) { clearInterval(pilotTimer); pilotBreath(); } else $('rpAuto').textContent = n + ' 秒後自動開始'; }, 1000);
+}
+async function pilotBreath() {
+  if (pilotBreathing) return; pilotBreathing = true;
+  $('rpNext').hidden = true; $('rpBreath').hidden = false; pilotStep(2, '第 2 步：慢慢呼吸'); window.scrollTo(0, 0);
+  const c = $('rpCircle'); let left = 60, phase = 0;
+  const tick = () => { const inhale = phase % 10 < 4; c.classList.toggle('in', inhale); c.textContent = inhale ? '吸氣' : '吐氣'; phase++; };
+  tick(); const iv = setInterval(tick, 1000); $('rpLeft').textContent = left;
+  while (left > 0) { await pause(1000); left--; $('rpLeft').textContent = left; }
+  clearInterval(iv); pilotBreathing = false; $('rpBreath').hidden = true;
+  await pilotSecond();
+}
+async function pilotSecond() {
+  pilotStep(3, '第 3 步：再量一次'); $('rpResult').hidden = true; pilotGotSecond = false;
+  document.querySelector('.box').hidden = false; window.scrollTo(0, 0);
+  for (let n = 3; n > 0; n--) { overlay('準備第二次量測，臉對準畫面', n); await pause(1000); }
+  overlay(''); relaxMode = true; await run(); relaxMode = false;
+  if (!pilotGotSecond) pilotAfterSecond(null); // too few frames or camera error
+}
+function pilotAfterSecond(r) {
+  pilotGotSecond = true;
+  document.querySelector('.box').hidden = true; $('intro').hidden = true; $('rpResult').hidden = false; window.scrollTo(0, 0);
+  $('rpB').textContent = Math.round(pilotFirst.bpm);
+  if (!r || r.quality < QMIN) {
+    pilotStep(3, '第二次沒量清楚');
+    $('rpA').textContent = '--'; $('rpDelta').textContent = '還差一步';
+    $('rpNote').textContent = '第二次訊號不夠穩，沒辦法比較。可以再量一次，或帶著第一次的結果回聊天室。';
+    $('rpAgain').textContent = '再量第二次'; $('rpAgain').onclick = pilotSecond; $('rpChat').textContent = '先回聊天室';
+    return;
+  }
+  [1, 2, 3].forEach(i => { $('rps' + i).className = 'done'; }); $('rpTitle').textContent = '完成！這一分鐘的你';
+  const b = Math.round(pilotFirst.bpm), a = Math.round(r.bpm), d = b - a;
+  $('rpA').textContent = a;
+  $('rpDelta').textContent = d >= 3 ? '慢了 ' + d + ' 下' : d <= -3 ? '快了 ' + (-d) + ' 下' : '差不多';
+  $('rpNote').textContent = d >= 3 ? '慢慢呼吸時，心跳跟著放緩是很常見的反應。' : d <= -3 ? '可能剛好說話或換了姿勢，下次先靜坐一下再量。' : '變化不大很常見，多練幾天，身體會慢慢熟悉這個節奏。';
+  $('rpAgain').textContent = '再做一次'; $('rpAgain').onclick = () => location.reload(); $('rpChat').textContent = '回聊天室看報告';
+  onScanDone(); // keeps the after-breathing reading and tells the chat
+}
 async function relaxPilotNotify(quality) {
   if (relaxNotified) return;
   relaxNotified = true;
@@ -444,8 +544,9 @@ async function relaxPilotNotify(quality) {
 if (relaxPilotFlow) {
   document.body.classList.add('relaxpilot'); document.title = '放鬆前後，看看心跳';
   document.querySelector('h1').textContent = '放鬆前後，看看心跳';
-  $('intro').innerHTML = '先量一次（30 秒），跟著圓圈慢慢呼吸 1 分鐘，再量一次。<br>明亮光線下正對鏡頭、手機放穩，量的時候別說話。影像不會儲存，只留下數字。';
-  $('go').textContent = '第 1 步：先量一次（30 秒）';
+  $('intro').innerHTML = '約 2 分鐘：先量一次、跟著圓圈呼吸 1 分鐘、再量一次。<br>明亮光線下正對鏡頭、手機放穩，量的時候別說話。影像不會儲存。';
+  $('go').textContent = '開始第 1 步：先量一次（30 秒）';
+  $('rp').hidden = false; pilotStep(1, '第 1 步：先量一次');
   document.querySelector('#relax b').textContent = '第 2 步：一分鐘慢呼吸';
   document.querySelector('#relax p').textContent = '跟著圓圈吸氣 4 秒、吐氣 6 秒。結束後會自動再量一次，比較放鬆前後的心跳。';
   document.querySelector('#relaxPilotReturn strong').textContent = '量完會把結果帶回聊天室';
@@ -454,7 +555,9 @@ if (relaxPilotFlow) {
   document.querySelector('#dock .mut').textContent = '量好的結果會自動帶回聊天室';
   $('ctaBtn').textContent = '回到 Deerly 主頁';
   $('chatBtn').hidden = true;
-  $('ctaBtn').onclick = $('relaxPilotBack').onclick = async () => {
+  $('rpBreathBtn').onclick = () => { clearInterval(pilotTimer); pilotBreath(); };
+  $('rpAgain').onclick = () => location.reload();
+  $('ctaBtn').onclick = $('rpChat').onclick = $('relaxPilotBack').onclick = async () => {
     // Leaving after only the first reading still brings that reading back to the chat.
     if (relaxSaved !== null) await relaxPilotNotify(relaxSaved);
     try {
@@ -532,8 +635,6 @@ onScanDone = async () => {
       $('relaxPilotStatus').textContent = await notifyRelaxScan({flow:relaxPilotFlow,saved:false,quality:lastResult.quality,liffClient:liff});
     } else if (!afterBreathing) {
       relaxSaved = lastResult.quality;
-      $('relaxPilotStatus').textContent = '第 1 次記下了。接著做第 2 步的慢呼吸；想先回去也可以，會帶著這次的結果。';
-      $('relax').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else await relaxPilotNotify(lastResult.quality);
     return;
   }
@@ -549,7 +650,10 @@ $('agree').onchange = () => { $('consentBtn').disabled = !$('agree').checked; };
 $('consentBtn').onclick = async () => {
   $('consentBtn').disabled = true;
   const r = await api('consent');
-  if (r.status === 200) { await refresh(); $('st').textContent = '已同意，之後的量測會自動儲存'; } else { $('st').textContent = '同意失敗（' + r.status + '）'; $('consentBtn').disabled = false; }
+  if (r.status === 200) {
+    await refresh(); $('st').textContent = '已同意，之後的量測會自動儲存';
+    if (relaxPilotFlow && pilotPending && lastResult) { await onScanDone(); pilotCountdown(); }
+  } else { $('st').textContent = '同意失敗（' + r.status + '）'; $('consentBtn').disabled = false; }
 };
 $('del').onclick = async () => {
   if (!confirm('確定刪除你在這裡的所有量測紀錄與同意紀錄？此動作無法復原。')) return;

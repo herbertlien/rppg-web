@@ -154,9 +154,26 @@ test('on the test bot any other text stays in the relaxation flow instead of the
 test('home tiles: plan, before/after re-measure from a finished plan, and restart offer',async()=>{
  const f=fixture({menu:true});await f.text('我的計畫');assert.equal(f.replies.at(-1)[0].type,'flex');assert.match(JSON.stringify(f.replies.at(-1)),/同意並開始/);
  await f.complete();await f.click('rlx|scan|skip');assert.equal(f.session().status,'preview');
- await f.text('心跳前後對比');assert.equal(f.session().status,'scan');assert.equal(f.session().scan_opt_in,true);assert.match(JSON.stringify(f.replies.at(-1)),/開始量測/);
+ await f.text('心跳前後對比');assert.equal(f.session().status,'scan');assert.equal(f.session().scan_opt_in,true);assert.match(JSON.stringify(f.replies.at(-1)),/開始（約 2 分鐘）/);
  f.tables.scans.push({user_id:'fake-user',bpm:80,quality:0.8,scanned_at:new Date().toISOString()});
  await f.text('我量好了');assert.equal(f.session().status,'preview');assert.match(JSON.stringify(f.replies.at(-1)),/你的心跳/);
- await f.text('放鬆練習');const last=f.replies.at(-1);assert.match(JSON.stringify(last),/你的 14 天放鬆計畫/);assert.match(JSON.stringify(last.at(-1).quickReply),/重新做 5 題/);
- await f.text('我的計畫');assert.match(JSON.stringify(f.replies.at(-1)),/先試前兩天/);
+ await f.text('放鬆練習');const last=f.replies.at(-1);assert.match(JSON.stringify(last),/第 1 天/);assert.match(JSON.stringify(last.at(-1).quickReply),/重新做 5 題/);
+ await f.text('我的計畫');assert.match(JSON.stringify(f.replies.at(-1)),/今天：/);
+ await f.click('rlx|report');assert.equal(f.replies.at(-1)[1].contents.type,'carousel');
+});
+test('a new friend gets a greeting and the home menu becomes the default before any message',async()=>{
+ const f=fixture({menu:true});await f.event({type:'follow'});
+ assert.match(JSON.stringify(f.replies.at(-1)),/歡迎來到 Deerly/);assert.equal(f.menuState.menus.get(f.menuState.defaultMenu).name,'relax-static-v4-home');
+ assert.equal(f.session(),undefined,'greeting creates no record');
+ const g=fixture({menu:true});await g.text('設定主選單');assert.match(JSON.stringify(g.replies.at(-1)),/主選單已設定好/);
+});
+test('day 7 check-in compares with the first day pair',async()=>{
+ const f=fixture({menu:true});await f.complete();await f.click('rlx|scan|skip');
+ const start=Date.now()-6.5*86400e3;f.session().created_at=new Date(start).toISOString();
+ f.tables.scans.push({user_id:'fake-user',bpm:80,quality:0.8,scanned_at:new Date(start+60e3).toISOString()},{user_id:'fake-user',bpm:73,quality:0.8,scanned_at:new Date(start+180e3).toISOString()});
+ await f.text('心跳前後對比');
+ f.tables.scans.push({user_id:'fake-user',bpm:76,quality:0.8,scanned_at:new Date(Date.now()-1).toISOString()},{user_id:'fake-user',bpm:70,quality:0.8,scanned_at:new Date().toISOString()});
+ f.session().scan_started_at=new Date(Date.now()-120e3).toISOString();
+ await f.text('我量好了');const out=JSON.stringify(f.replies.at(-1));
+ assert.match(out,/和第 1 天的你比一比/);assert.match(out,/第 1 天：80 → 73/);assert.match(out,/今天：76 → 70/);
 });

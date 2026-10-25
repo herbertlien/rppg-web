@@ -18,6 +18,7 @@ export function fixture({enabled=true,allow='invited',admin='',failTable=null,sh
     eq(k,v){this.filters.push(r=>r[k]===v);return this;}
     is(k,v){this.filters.push(r=>(r[k]??null)===v);return this;}
     gte(k,v){this.filters.push(r=>r[k]>=v);return this;}
+    lt(k,v){this.filters.push(r=>r[k]<v);return this;}
     order(k,{ascending}){this.sort={k,ascending};return this;}
     limit(n){this.limitN=n;return this;}
     maybeSingle(){this.singleRow=true;return this;}

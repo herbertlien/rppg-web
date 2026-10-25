@@ -119,14 +119,14 @@ function relaxMenuIds(): Promise<Record<string,string>> {
 }
 // The test bot's account-wide home menu (user-approved for @607idvzb only), checked once per instance.
 let relaxHomeChecked: Promise<void> | null = null;
-async function relaxEnsureHome() {
-  if(!relaxMenusEnabled())return;
+async function relaxEnsureHome(): Promise<string> {
+  if(!relaxMenusEnabled())return relaxMenuTestScope()?"MENU_SWITCH_OFF":"MENU_TEST_SCOPE_MISMATCH";
   if(!relaxHomeChecked)relaxHomeChecked=(async()=>{
     const home=(await relaxMenuIds()).home;
     const current=await relaxMenuApi("/v2/bot/user/all/richmenu");
     if(current?.richMenuId!==home)await relaxMenuApi(`/v2/bot/user/all/richmenu/${home}`,"POST");
   })().catch(e=>{relaxHomeChecked=null;throw e;});
-  try{await relaxHomeChecked;}catch(e){console.error("Test home menu unavailable",relaxMenuFailure(e));}
+  try{await relaxHomeChecked;return "OK";}catch(e){const code=relaxMenuFailure(e);console.error("Test home menu unavailable",code);return code;}
 }
 async function relaxMenusShow(sub: string, snapshot: RelaxSession): Promise<boolean> {
   if(!relaxMenusEnabled()){

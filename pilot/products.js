@@ -68,7 +68,22 @@ export function createPreview(p, a) {
       '練習在任務之間留一段短暫空白',
       '回顧哪些練習比較容易持續'
     ];
+    const type = {
+      break:{name:'工作空檔充電型',plan:'排在工作中間的固定空檔，讓自己真的停下來一下'},
+      evening:{name:'下班切換型',plan:'排在下班後的固定時段，當作工作和生活的分界'},
+      beforebed:{name:'睡前沉澱型',plan:'排在睡前的固定流程裡，讓一天慢慢收尾'}
+    }[a.goal];
+    const barrierPlan = {
+      forget:'每天同一個時段做，錯過不用補做',
+      busy:'忙的日子有 3 分鐘短版，不追求做滿',
+      distract:'開始前先關通知，把注意力帶回眼前',
+      unsure:'每天的步驟都排好了，照著做就好'
+    }[a.barrier];
     return {
+      type:{name:type.name,intro:`你想在${context}練習，每天 ${minutes} 分鐘，過去最難的是「${label(p,'barrier',a.barrier)}」。`,
+        points:[type.plan,barrierPlan,a.barrier==='forget'?'第 7、14 天會再做一次心跳前後對比':'錯過不用補做，隔天照常就好']},
+      weeks:[{title:'第 1 週・認識身體',detail:'觀察呼吸、放鬆肩頸，找到你的節奏'},{title:'第 2 週・放進日常',detail:'在任務之間留空白，練習隨時切換'}],
+      firstDay:['找個能坐好的地方，雙腳踩地','觀察自然呼吸，不必改變節奏','結束後，記下一句現在的感受'],
       headline:`適合你的 ${p.days} 天・每天 ${minutes} 分鐘練習`,
       reason:`你想在${context}練習，所以計畫都排在固定時段，每天一個做得到的小步驟。`,
       notes:[focus, a.reminder==='none'?'你選擇不接收提醒':`你偏好的提醒時段：${label(p,'reminder',a.reminder)}`],

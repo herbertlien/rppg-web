@@ -729,6 +729,10 @@ async function onText(sub: string, replyToken: string, text: string) {
     return relaxAsk(sub,replyToken,s.paused?await relaxUpdate(s,{paused:false}):s);
   });
   if(t === "選單診斷")return relaxGuard(sub,replyToken,()=>relaxMenuDiagnose(sub,replyToken));
+  if(t === "設定主選單" && relaxAllowed(sub))return relaxGuard(sub,replyToken,async()=>{
+    const status=await relaxEnsureHome();
+    return reply(replyToken,[{type:"text",text:status==="OK"?"主選單已設定好。關掉聊天室再打開，底部就會看到。":"主選單沒有設定成功："+status}]);
+  });
   if(t === "收起放鬆選單")return relaxGuard(sub,replyToken,async()=>{
     if(!relaxMenuTestScope())return reply(replyToken,[{type:"text",text:"這個操作只適用測試帳號。"}]);
     const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
@@ -740,7 +744,7 @@ async function onText(sub: string, replyToken: string, text: string) {
     const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
     if(!s)return relaxStart(sub,replyToken);
     if(s.status==="quiz"||s.paused)return relaxAsk(sub,replyToken,s.paused?await relaxUpdate(s,{paused:false}):s);
-    if(t==="我的計畫")return relaxAsk(sub,replyToken,s);
+    if(t==="我的計畫")return s.status==="preview"?relaxToday(sub,replyToken,s):relaxAsk(sub,replyToken,s);
     return relaxOfferScan(sub,replyToken,await relaxUpdate(s,{status:"scan",scan_opt_in:true,scan_started_at:new Date().toISOString()}));
   });
   if (["放鬆測試","放鬆練習","14天放鬆","14 天放鬆","重新開始放鬆測試"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxStart(sub,replyToken));
@@ -779,6 +783,7 @@ async function onText(sub: string, replyToken: string, text: string) {
 async function onEvent(ev: { type: string; replyToken?: string; source?: { userId?: string }; message?: { type: string; text?: string }; postback?: { data: string } }) {
   const sub = ev.source?.userId;
   if (!sub || !ev.replyToken) return;
+  if (ev.type === "follow" && relaxMenuTestScope() && relaxAllowed(sub)) return relaxGuard(sub, ev.replyToken, () => relaxGreet(sub, ev.replyToken!));
   if (ev.type === "follow") return onText(sub, ev.replyToken, "");
   if (ev.type === "message" && ev.message?.type === "text") return onText(sub, ev.replyToken, ev.message.text ?? "");
   if (ev.type === "postback" && ev.postback) return onPostback(sub, ev.replyToken, ev.postback.data);
@@ -857,7 +862,22 @@ function createPreview(p, a) {
       '練習在任務之間留一段短暫空白',
       '回顧哪些練習比較容易持續'
     ];
+    const type = {
+      break:{name:'工作空檔充電型',plan:'排在工作中間的固定空檔，讓自己真的停下來一下'},
+      evening:{name:'下班切換型',plan:'排在下班後的固定時段，當作工作和生活的分界'},
+      beforebed:{name:'睡前沉澱型',plan:'排在睡前的固定流程裡，讓一天慢慢收尾'}
+    }[a.goal];
+    const barrierPlan = {
+      forget:'每天同一個時段做，錯過不用補做',
+      busy:'忙的日子有 3 分鐘短版，不追求做滿',
+      distract:'開始前先關通知，把注意力帶回眼前',
+      unsure:'每天的步驟都排好了，照著做就好'
+    }[a.barrier];
     return {
+      type:{name:type.name,intro:`你想在${context}練習，每天 ${minutes} 分鐘，過去最難的是「${label(p,'barrier',a.barrier)}」。`,
+        points:[type.plan,barrierPlan,a.barrier==='forget'?'第 7、14 天會再做一次心跳前後對比':'錯過不用補做，隔天照常就好']},
+      weeks:[{title:'第 1 週・認識身體',detail:'觀察呼吸、放鬆肩頸，找到你的節奏'},{title:'第 2 週・放進日常',detail:'在任務之間留空白，練習隨時切換'}],
+      firstDay:['找個能坐好的地方，雙腳踩地','觀察自然呼吸，不必改變節奏','結束後，記下一句現在的感受'],
       headline:`適合你的 ${p.days} 天・每天 ${minutes} 分鐘練習`,
       reason:`你想在${context}練習，所以計畫都排在固定時段，每天一個做得到的小步驟。`,
       notes:[focus, a.reminder==='none'?'你選擇不接收提醒':`你偏好的提醒時段：${label(p,'reminder',a.reminder)}`],
@@ -917,48 +937,83 @@ function relaxWelcome() {
     {note:'按下同意後，會保存你的回答最多 30 天，隨時可以刪除。'}
   ],[action('同意並開始','rlx|start|yes',true),action('資料怎麼使用','rlx|privacy'),action('先不要','rlx|start|no')]);
 }
+// Numbered step row used on the scan invitation and the first-day card.
+const relaxStep = (n, text) => ({type:'box',layout:'horizontal',spacing:'md',contents:[
+  {type:'text',text:String(n),size:'md',weight:'bold',color:relaxColors.deep,flex:0,wrap:true},paragraph(text,{size:'sm'})]});
 function relaxScanCard(data, uri) {
-  return card('要量一下心跳嗎？約 30 秒，也可以略過。','要量一下心跳嗎？',[
-    '用手機前鏡頭，大約 30 秒，不用穿戴裝置。',
-    uri?'量完按「回聊天室」，就會看到你的計畫。':'不量也會拿到一樣的計畫。',
-    {note:'影像只在手機上處理、不上傳；量測頁會另外詢問是否保存。這不是醫療檢測。'}
-  ],[action(uri?'開始量測':'量一下',uri||data('rlx|scan|yes'),true,!!uri),action('略過，直接看計畫',data('rlx|scan|skip'))]);
+  const message = card('看看你放鬆前後的心跳｜約 2 分鐘，也可以略過。','看看你放鬆前後的心跳',[],[
+    action(uri?'開始（約 2 分鐘）':'量一下',uri||data('rlx|scan|yes'),true,!!uri),action('略過，直接看計畫',data('rlx|scan|skip'))]);
+  message.contents.header.contents[0].text='5 題完成・最後一步';
+  message.contents.body.contents=[
+    paragraph('約 2 分鐘，手機會一步一步帶你做：',{size:'sm'}),
+    relaxStep(1,'先量一次心跳（30 秒）'),relaxStep(2,'跟著圓圈慢慢呼吸（1 分鐘）'),relaxStep(3,'再量一次（30 秒）'),
+    paragraph('做完回到這裡，會收到你的放鬆報告。',{size:'sm'}),
+    relaxLine({note:'影像只在手機上處理、不上傳。不量也會拿到一樣的計畫。'})];
+  return message;
 }
-// Before/after heart rate around one minute of slow breathing. Self-observation only, never feeds the plan.
-function relaxHeartCard(before, after) {
+// Report carousel pieces. Heart rate is self-observation only and never changes the plan.
+const relaxBubble = (eyebrow, title, contents, footer) => ({ type:'bubble', size:'mega',
+  header:{type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,paddingAll:'18px',spacing:'xs',contents:[
+    paragraph(eyebrow,{size:'xs',color:relaxColors.deep,weight:'bold'}),paragraph(title,{size:'lg',weight:'bold'})]},
+  body:{type:'box',layout:'vertical',backgroundColor:relaxColors.surface,paddingAll:'18px',spacing:'md',contents},
+  ...(footer?{footer:{type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,paddingAll:'12px',spacing:'sm',contents:footer}}:{})});
+const relaxBig = (text, label, color) => ({type:'box',layout:'vertical',flex:1,contents:[
+  {type:'text',text,size:'3xl',weight:'bold',color,align:'center',wrap:true},{type:'text',text:label,size:'xs',color:relaxColors.muted,align:'center',wrap:true}]});
+const relaxDelta = (b, a) => b - a >= 3 ? `慢了 ${b-a} 下` : b - a <= -3 ? `快了 ${a-b} 下` : '差不多';
+function relaxHeartBubble(eyebrow, before, after, first) {
   const b=Math.round(before), a=Number.isFinite(after)?Math.round(after):null, d=a===null?0:b-a;
-  const big=(text,label,color)=>({type:'box',layout:'vertical',flex:1,contents:[
-    {type:'text',text,size:'3xl',weight:'bold',color,align:'center',wrap:true},{type:'text',text:label,size:'xs',color:relaxColors.muted,align:'center',wrap:true}]});
-  const numbers=a===null?[big(String(b),'次／分',relaxColors.deep)]:[
-    big(String(b),'放鬆前',relaxColors.muted),
-    {type:'text',text:'→',size:'xl',color:relaxColors.muted,align:'center',gravity:'center',flex:0,wrap:true},
-    big(String(a),'放鬆後',relaxColors.deep)];
+  const numbers=a===null?[relaxBig(String(b),'次／分',relaxColors.deep)]:[relaxBig(String(b),'放鬆前',relaxColors.muted),
+    {type:'text',text:'→',size:'xl',color:relaxColors.muted,align:'center',gravity:'center',flex:0,wrap:true},relaxBig(String(a),'放鬆後',relaxColors.deep)];
   const message=a===null?'這次只量了一次。下次可以試試「先量、慢呼吸 1 分鐘、再量」，看看自己的變化。'
-    :d>=3?`慢了 ${d} 下。慢慢呼吸時，心跳跟著放緩是很常見的反應。`
+    :d>=3?`慢了 ${d} 下。慢慢呼吸時，心跳跟著放緩是很常見的反應，代表你這一分鐘真的停下來了。`
     :d<=-3?`這次快了 ${-d} 下，可能剛好說話或換了姿勢。下次先靜坐一下再量看看。`
     :'變化不大，這很常見。多練幾天，身體會慢慢熟悉這個節奏。';
-  return {type:'flex',altText:a===null?`你的心跳：每分鐘 ${b} 下`:`這一分鐘，你的心跳：${b} → ${a}`,
-    contents:{type:'bubble',size:'mega',
-      header:{type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,paddingAll:'20px',spacing:'sm',contents:[
-        paragraph('DEERLY・14 天放鬆練習',{size:'xs',color:relaxColors.deep,weight:'bold'}),paragraph(a===null?'你的心跳':'這一分鐘，你的心跳',{size:'xl',weight:'bold'})]},
-      body:{type:'box',layout:'vertical',backgroundColor:relaxColors.surface,paddingAll:'20px',spacing:'lg',contents:[
-        {type:'box',layout:'horizontal',backgroundColor:relaxColors.sage,cornerRadius:'12px',paddingAll:'16px',contents:numbers},
-        paragraph(message),
-        paragraph('計畫第 7 天和第 14 天會再做一次前後對比，看看兩週來的變化。'),
-        relaxLine({note:'只是自我觀察，不是醫療檢測，也不影響你的計畫；單次差異也可能來自量測誤差。'})]}}};
+  const compare=first&&a!==null?[{type:'box',layout:'vertical',spacing:'xs',contents:[
+    paragraph(`第 1 天：${Math.round(first.before)} → ${Math.round(first.after)}（${relaxDelta(Math.round(first.before),Math.round(first.after))}）`,{size:'sm'}),
+    paragraph(`今天：${b} → ${a}（${relaxDelta(b,a)}）`,{size:'sm',weight:'bold',color:relaxColors.deep})]}]:[];
+  return relaxBubble(eyebrow,first?'和第 1 天的你比一比':a===null?'你的心跳':'這一分鐘，你的心跳',[
+    {type:'box',layout:'horizontal',backgroundColor:relaxColors.sage,cornerRadius:'12px',paddingAll:'14px',contents:numbers},
+    ...compare,paragraph(message,{size:'sm'}),
+    relaxLine({note:'只是自我觀察，不是醫療檢測，也不影響你的計畫；睡眠、咖啡、量的時間都會影響數字。'})]);
 }
-function relaxResultCard(preview) {
-  return card('你的 14 天放鬆計畫｜'+preview.headline,'你的 14 天放鬆計畫',[
-    preview.headline,preview.reason,...preview.notes,
-    {note:'練習中覺得不舒服就停下來，不需要憋氣或刻意改變呼吸。'}
-  ],[action('資料怎麼使用','rlx|privacy')]);
+function relaxHeartCard(before, after, first) {
+  return {type:'flex',altText:Number.isFinite(after)?`這一分鐘，你的心跳：${Math.round(before)} → ${Math.round(after)}`:`你的心跳：每分鐘 ${Math.round(before)} 下`,
+    contents:relaxHeartBubble('放鬆反應',before,after,first)};
 }
-function relaxInterestCard(preview, data) {
-  return card('先試前兩天｜完整 14 天 NT$1,290，目前只開放登記。','先試前兩天',[
-    ...preview.tasks.slice(0,2).map(t=>t.title+'\n'+t.detail),
-    '完整 14 天計畫 NT$1,290',
-    {note:'目前只開放登記，不會收費，也不會成立訂單。'}
-  ],[action('我有興趣',data('rlx|interest'),true),action('再看一次計畫',data('rlx|resume')),action('刪除我的資料',data('rlx|delete'))]);
+// overview=true shades week 1 (report map); otherwise days already passed are shaded.
+const relaxDayGrid = (current, overview) => [0,7].map(start=>({type:'box',layout:'horizontal',spacing:'xs',contents:Array.from({length:7},(_,k)=>{
+  const day=start+k+1, check=day===7||day===14, now=day===current, past=day<current;
+  return {type:'box',layout:'vertical',flex:1,cornerRadius:'6px',paddingAll:'4px',
+    backgroundColor:now?relaxColors.deep:(overview?day<=7:past)?relaxColors.sage:relaxColors.canvas,
+    ...(check?{borderWidth:'2px',borderColor:relaxColors.forest}:{}),
+    contents:[{type:'text',text:String(day),size:'xs',align:'center',wrap:true,color:now?'#FFFFFF':relaxColors.ink,weight:check?'bold':'regular'}]};
+})}));
+function relaxReport(preview, data, heart) {
+  const cards=[];
+  if (heart) cards.push(relaxHeartBubble('放鬆反應',heart.before,heart.after,heart.first));
+  cards.push(relaxBubble('你的放鬆類型',preview.type.name,[paragraph(preview.type.intro,{size:'sm'}),
+    paragraph('所以你的計畫會：',{size:'sm',weight:'bold',color:relaxColors.deep}),...preview.type.points.map(x=>paragraph('・'+x,{size:'sm'}))]));
+  cards.push(relaxBubble('14 天地圖','兩週，一步一步來',[...relaxDayGrid(1,true),
+    ...preview.weeks.map(w=>paragraph(w.title+'\n'+w.detail,{size:'sm'})),
+    paragraph('第 7、14 天・前後對比\n再量一次，和今天的你比一比',{size:'sm',color:relaxColors.deep,weight:'bold'})]));
+  cards.push(relaxBubble('今天就開始',`第 1 天・${preview.headline.match(/每天 (\d+) 分鐘/)[1]} 分鐘`,[
+    ...preview.firstDay.map((x,i)=>relaxStep(i+1,x)),
+    {type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,cornerRadius:'12px',paddingAll:'12px',contents:[
+      paragraph('完整 14 天計畫',{size:'xs',color:relaxColors.muted}),paragraph('NT$1,290',{size:'xl',weight:'bold'})]},
+    relaxLine({note:'目前只開放登記，不會收費，也不會成立訂單。'})],
+    [action('我有興趣',data('rlx|interest'),true),action('刪除我的資料',data('rlx|delete'))]));
+  const n=cards.length;
+  cards.forEach((c,i)=>{c.header.contents[0].text=`${i+1}/${n}・`+c.header.contents[0].text;});
+  return [{type:'text',text:`你的放鬆報告來了，往右滑看 ${n} 張 ›`},
+    {type:'flex',altText:`你的放鬆報告｜${preview.type.name}・${preview.headline}`,contents:{type:'carousel',contents:cards}}];
+}
+// 「我的計畫」：今天是第幾天、今天做什麼。
+function relaxTodayCard(preview, day, data) {
+  const t=preview.tasks[day-1];
+  return {type:'flex',altText:`第 ${day} 天｜${t.title}`,contents:relaxBubble(`${preview.type.name}・第 ${day} 天`,t.title.replace(/^第 \d+ 天・/,'今天：'),[
+    paragraph(t.detail,{size:'sm'}),...relaxDayGrid(day,false),
+    ...(day===7||day===14?[paragraph('今天是前後對比日：點下方主選單的「心跳前後對比」。',{size:'sm',color:relaxColors.deep,weight:'bold'})]:[])],
+    [action('再看一次報告',data('rlx|report')),action('刪除我的資料',data('rlx|delete'))])};
 }
 
 // Shared image geometry + per-question postbacks. No LINE calls here.
@@ -1119,14 +1174,14 @@ function relaxMenuIds(): Promise<Record<string,string>> {
 }
 // The test bot's account-wide home menu (user-approved for @607idvzb only), checked once per instance.
 let relaxHomeChecked: Promise<void> | null = null;
-async function relaxEnsureHome() {
-  if(!relaxMenusEnabled())return;
+async function relaxEnsureHome(): Promise<string> {
+  if(!relaxMenusEnabled())return relaxMenuTestScope()?"MENU_SWITCH_OFF":"MENU_TEST_SCOPE_MISMATCH";
   if(!relaxHomeChecked)relaxHomeChecked=(async()=>{
     const home=(await relaxMenuIds()).home;
     const current=await relaxMenuApi("/v2/bot/user/all/richmenu");
     if(current?.richMenuId!==home)await relaxMenuApi(`/v2/bot/user/all/richmenu/${home}`,"POST");
   })().catch(e=>{relaxHomeChecked=null;throw e;});
-  try{await relaxHomeChecked;}catch(e){console.error("Test home menu unavailable",relaxMenuFailure(e));}
+  try{await relaxHomeChecked;return "OK";}catch(e){const code=relaxMenuFailure(e);console.error("Test home menu unavailable",code);return code;}
 }
 async function relaxMenusShow(sub: string, snapshot: RelaxSession): Promise<boolean> {
   if(!relaxMenusEnabled()){
@@ -1196,7 +1251,7 @@ async function relaxStart(sub: string, token: string) {
   const uid = await findUser(sub, false);
   const existing = uid ? await relaxSession(uid) : null;
   await relaxEnsureHome();
-  if (existing?.status === "preview" && !existing.paused) return relaxPreview(sub,token,existing,undefined,true);
+  if (existing?.status === "preview" && !existing.paused) return relaxToday(sub,token,existing);
   if (existing) {
     const data = relaxData(existing);
     return reply(token, [{ type:"text", text:"你上次的放鬆練習還沒做完。要接著做，還是重新開始？",
@@ -1224,16 +1279,28 @@ async function relaxAsk(sub: string, token: string, s: RelaxSession) {
 }
 async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
   await relaxMenusTryRestore(sub,s);
-  const message = relaxScanCard(relaxData(s), s.scan_opt_in ? relaxScanUrl(s) : undefined);
+  const message: Record<string, unknown> = relaxScanCard(relaxData(s), relaxScanUrl(s));
   message.quickReply = quick([{label:"我量好了",data:relaxData(s)("rlx|done")},{label:"先暫停",data:relaxData(s)("rlx|pause")}]);
   return reply(token,[message]);
 }
-async function relaxPreview(sub: string, token: string, s: RelaxSession, heart?: {before:number;after?:number}, offerRestart = false) {
+type RelaxHeart = {before:number;after?:number;first?:{before:number;after:number}};
+async function relaxPreview(sub: string, token: string, s: RelaxSession, heart?: RelaxHeart) {
   await relaxMenusTryRestore(sub,s);
-  const preview = createPreview(catalog.relax,s.answers);
-  const interest: Record<string, unknown> = relaxInterestCard(preview,relaxData(s));
-  if (offerRestart) interest.quickReply = quick([{label:"重新做 5 題",data:relaxData(s)("rlx|restart")}]);
-  return reply(token,[...(heart?[relaxHeartCard(heart.before,heart.after)]:[]),relaxResultCard(preview),interest]);
+  return reply(token,relaxReport(createPreview(catalog.relax,s.answers),relaxData(s),heart));
+}
+// Day 1 is the day the tester agreed; the plan stops advancing after day 14.
+const relaxDay = (s: RelaxSession) => Math.min(14, Math.max(1, Math.floor((Date.now()-Date.parse(s.created_at))/86400e3)+1));
+async function relaxToday(sub: string, token: string, s: RelaxSession) {
+  await relaxMenusTryRestore(sub,s);
+  const message: Record<string, unknown> = relaxTodayCard(createPreview(catalog.relax,s.answers),relaxDay(s),relaxData(s));
+  message.quickReply = quick([{label:"重新做 5 題",data:relaxData(s)("rlx|restart")}]);
+  return reply(token,[message]);
+}
+async function relaxGreet(sub: string, token: string) {
+  await relaxEnsureHome();
+  const uid = await findUser(sub,false), s = uid ? await relaxSession(uid) : null;
+  if (s) return relaxAsk(sub,token,s);
+  return reply(token,[{type:"text",text:"嗨，歡迎來到 Deerly。\n每天留幾分鐘給自己，我們幫你排好放鬆練習。\n\n點下方的「放鬆練習」，回答 5 題就能拿到你的 14 天計畫。"}]);
 }
 async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
   if (s.status !== "scan" || s.paused || !s.scan_opt_in || !s.scan_started_at) return relaxAsk(sub,token,s);
@@ -1251,8 +1318,18 @@ async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
     return reply(token,[{type:"text",text:"這次沒有量到清楚的心跳。沒關係，可以再量一次，或直接看計畫。",
       quickReply:quick([{label:"再量一次",uri:relaxScanUrl(s)},{label:"直接看計畫",data:relaxData(s)("rlx|scan|skip")}])}]);
   }
+  const heart: RelaxHeart = {before:valid[0].bpm,after:valid.length>1?valid[valid.length-1].bpm:undefined};
+  if (heart.after !== undefined && relaxDay(s) >= 7) {
+    // Day 7/14 check-ins compare with the first day's before/after pair.
+    const day1 = new Date(Date.parse(s.created_at)+86400e3).toISOString();
+    const first = await db.from("scans").select("bpm,quality,scanned_at").eq("user_id",s.user_id)
+      .gte("scanned_at",s.created_at).lt("scanned_at",day1).order("scanned_at",{ascending:true}).limit(10);
+    if (first.error) throw first.error;
+    const ok = (first.data ?? []).filter((x: {bpm:number;quality:number}) => Number.isFinite(x.quality) && x.quality >= 0.35 && x.bpm >= 30 && x.bpm <= 220);
+    if (ok.length > 1) heart.first = {before:ok[0].bpm,after:ok[ok.length-1].bpm};
+  }
   const next = await relaxUpdate(s,{status:"preview"});
-  return relaxPreview(sub,token,next,{before:valid[0].bpm,after:valid.length>1?valid[valid.length-1].bpm:undefined});
+  return relaxPreview(sub,token,next,heart);
 }
 async function relaxPostback(sub: string, token: string, raw: string) {
   if (!relaxAllowed(sub)) return reply(token,[{type:"text",text:"放鬆測試目前未開放。"}]);
@@ -1301,13 +1378,15 @@ async function relaxPostback(sub: string, token: string, raw: string) {
     const q=catalog.relax.questions[s.step];
     if (detail !== String(s.step) || !q || !q.options.some(o=>o.value===value)) return relaxAsk(sub,token,s);
     const step=s.step+1;
-    return relaxAsk(sub,token,await relaxUpdate(s,{answers:{...s.answers,[q.id]:value},step,status:step===5?"scan":"quiz"}));
+    return relaxAsk(sub,token,await relaxUpdate(s,{answers:{...s.answers,[q.id]:value},step,status:step===5?"scan":"quiz",
+      ...(step===5?{scan_opt_in:true,scan_started_at:new Date().toISOString()}:{})}));
   }
   if (kind === "scan" && s.status === "scan") {
     if (detail === "skip") return relaxPreview(sub,token,await relaxUpdate(s,{status:"preview",scan_opt_in:false,scan_started_at:null}));
     if (detail === "yes") return relaxOfferScan(sub,token,s.scan_opt_in?s:await relaxUpdate(s,{scan_opt_in:true,scan_started_at:new Date().toISOString()}));
   }
   if (kind === "done") return relaxScanDone(sub,token,s);
+  if (kind === "report" && s.status === "preview") return relaxPreview(sub,token,s);
   if (kind === "interest" && s.status === "preview") {
     if (!s.interest_clicked_at) await relaxUpdate(s,{interest_clicked_at:new Date().toISOString()});
     return reply(token,[{type:"text",text:"謝謝，已幫你登記！目前不會收費，也沒有成立訂單。"}]);
