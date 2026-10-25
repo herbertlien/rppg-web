@@ -368,6 +368,7 @@ async function onScanDone(sub: string, replyToken: string) {
 }
 
 async function onPostback(sub: string, replyToken: string, data: string) {
+  if (data.startsWith('rlx|')) return relaxPostback(sub, replyToken, data);
   const [kind, qid, value] = data.split("|");
   if (kind === "home") return qid === "pack" ? showPack(sub, replyToken) : startFlow(sub, replyToken);
   if (kind === "restart") return startFlow(sub, replyToken, true);
@@ -439,6 +440,15 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 }
 
 async function onText(sub: string, replyToken: string, text: string) {
+  const t = text.trim();
+  if (t === "放鬆測試" || t === "14天放鬆" || t === "14 天放鬆") return relaxStart(sub, replyToken);
+  if (t === "重新開始放鬆測試") return relaxStart(sub, replyToken);
+  if (t === "刪除放鬆測試資料") return relaxDelete(sub, replyToken);
+  if (t === "我量好了" && relaxAllowed(sub)) {
+    const uid = await findUser(sub, false);
+    const s = uid ? await relaxSession(uid) : null;
+    if (s?.status === "scan") return relaxScanDone(sub, replyToken, s);
+  }
   if (/^(開始問卷|開始|問卷)$/.test(text.trim())) return startFlow(sub, replyToken);
   if (/^我量好了/.test(text.trim())) return onScanDone(sub, replyToken);
   if (/^(我的報告|報告|看報告)$/.test(text.trim())) return showReport(sub, replyToken);
@@ -457,6 +467,173 @@ async function onEvent(ev: { type: string; replyToken?: string; source?: { userI
   if (ev.type === "follow") return onText(sub, ev.replyToken, "");
   if (ev.type === "message" && ev.message?.type === "text") return onText(sub, ev.replyToken, ev.message.text ?? "");
   if (ev.type === "postback" && ev.postback) return onPostback(sub, ev.replyToken, ev.postback.data);
+}
+
+
+// ---------- 自願參加的數位放鬆方案測試（與既有保健品流程隔離）----------
+// 僅在 RELAX_PILOT_ENABLED=1 且 LINE ID 在 ADMIN_LINE_SUBS 或 RELAX_PILOT_LINE_SUBS 時生效。
+// Q&A / 規則由 pilot/products.js 在 build.mjs 一同嵌入（見 @@PILOT@@）。
+// @@PILOT@@
+const RELAX_PILOT_ENABLED = Deno.env.get("RELAX_PILOT_ENABLED") === "1";
+const RELAX_PILOT_LINE_SUBS = (Deno.env.get("RELAX_PILOT_LINE_SUBS") ?? "").split(",").map(s => s.trim()).filter(Boolean);
+const relaxAllowed = (sub: string) => RELAX_PILOT_ENABLED && (ADMINS.includes(sub) || RELAX_PILOT_LINE_SUBS.includes(sub));
+const RELAX_CONSENT_VERSION = "relax-pilot-2026-10";
+type RelaxSession = {
+  user_id: string;
+  answers: Record<string, string>;
+  step: number;
+  status: "quiz" | "scan" | "preview";
+  scan_opt_in: boolean;
+  scan_started_at?: string | null;
+};
+async function relaxSession(uid: string): Promise<RelaxSession | null> {
+  const q = await db.from("digital_relax_pilot_sessions").select("*").eq("user_id", uid).maybeSingle();
+  if (q.error) throw q.error;
+  return q.data as RelaxSession | null;
+}
+async function relaxUpdate(uid: string, changes: Record<string, unknown>) {
+  const q = await db.from("digital_relax_pilot_sessions").update({ ...changes, updated_at: new Date().toISOString() }).eq("user_id", uid);
+  if (q.error) throw q.error;
+}
+async function relaxStart(sub: string, token: string) {
+  if (!relaxAllowed(sub)) return reply(token, [{ type: "text", text: "這個放鬆服務目前只開放受邀測試；原本的 Deerly 服務不受影響。" }]);
+  const uid = await findUser(sub, false);
+  const existing = uid ? await relaxSession(uid) : null;
+  if (existing) {
+    return reply(token, [{
+      type: "text", text: "你已有一份放鬆測試進度。要繼續還是重新開始？",
+      quickReply: quick([
+        { label: "繼續", data: "rlx|resume" },
+        { label: "重新開始", data: "rlx|start|yes" },
+        { label: "刪除測試資料", text: "刪除放鬆測試資料" }
+      ])
+    }]);
+  }
+  return reply(token, [{
+    type: "text",
+    text: "【14 天個人化放鬆練習｜內部測試】\n本次會在 LINE 詢問 5 題，記錄你的練習時段和偏好，以產生規則式練習計畫。\n完成後可自願開啟既有 LIFF 進行心率量測。量測資訊不判定壓力、焦慮或治療效果，也不決定推薦。原本的心率量測頁仍依自己的同意規則儲存紀錄；本測試不會複製影像或心率到新問卷。\n測試回答儲存在獨立資料表；輸入「刪除放鬆測試資料」可刪除本測試回答（不影響既有心率紀錄）。目前無付款、無正式 14 天課程、無自動提醒。測試價 NT$1,290 只用來調查購買意願。\n同意參加嗎？",
+    quickReply: quick([{ label: "我同意，開始", data: "rlx|start|yes" }, { label: "先不要", data: "rlx|start|no" }])
+  }]);
+}
+async function relaxAsk(token: string, s: RelaxSession) {
+  if (s.status === "preview") return relaxPreview(token, s);
+  if (s.status === "scan") return relaxOfferScan(token, s);
+  const q = catalog.relax.questions[s.step];
+  if (!q) return reply(token, [{ type: "text", text: "問卷進度異常，請輸入「重新開始放鬆測試」。" }]);
+  const items = q.options.map((o: {value: string;label: string}) => ({
+    label: o.label.slice(0, 20),
+    data: "rlx|answer|" + s.step + "|" + o.value
+  }));
+  if (s.step > 0) items.push({ label: "上一題", data: "rlx|back" });
+  return reply(token, [{ type: "text", text: "放鬆測試（" + (s.step + 1) + " / 5）\n" + q.text, quickReply: quick(items) }]);
+}
+async function relaxOfferScan(token: string, s: RelaxSession) {
+  return reply(token, [{
+    type: "text",
+    text: "你的 5 題已經完成。\n接下來可以自願用手機前鏡頭進行約 30 秒 rPPG 心率量測，再回來看個人化計畫。它只是一份當下的生理訊號參考，不會影響練習內容；不量測也完全可以取得相同的計畫預覽。\n如果開啟量測，請另外閱讀並同意原本量測頁面的資料保存說明。",
+    quickReply: quick([{ label: "同意，量測心率", data: "rlx|scan|yes" }, { label: "略過，看我的方案", data: "rlx|scan|skip" }])
+  }]);
+}
+async function relaxPreview(token: string, s: RelaxSession, observedBpm?: number) {
+  const p = createPreview(catalog.relax, s.answers);
+  const demo = p.tasks.slice(0, 2).map((t: {day:number;title:string;detail:string})=>t.title + "\n" + t.detail).join("\n\n");
+  const note = Number.isFinite(observedBpm) ? "\n你剛才量得心率約 " + Math.round(observedBpm!) + " 次／分鐘（僅供參考，不參與方案選擇）。" : "";
+  return reply(token, [
+    { type: "text", text: "【你的個人化練習預覽】\n" + p.headline + "\n" + p.reason + note },
+    { type: "text", text: "前兩天的任務：\n\n" + demo + "\n\n完整 14 天內容目前尚未提供，請勿付款。" },
+    { type: "text",
+      text: "如果日後正式推出，14 天方案測試價 NT$1,290。\n你願意進一步了解這個價格的完整方案嗎？這只是意願調查，不會產生訂單或扣款。",
+      quickReply: quick([{ label: "有興趣", data: "rlx|interest" }, { label: "再看一次方案", data: "rlx|resume" }, { label: "刪除測試資料", text: "刪除放鬆測試資料" }])
+    }
+  ]);
+}
+async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
+  if (!s.scan_opt_in || !s.scan_started_at) return relaxOfferScan(token, s);
+  const scans = await db.from("scans").select("bpm,quality,scanned_at").eq("user_id", s.user_id)
+    .gte("scanned_at", s.scan_started_at)
+    .order("scanned_at", { ascending: false }).limit(1);
+  if (scans.error) throw scans.error;
+  const last = scans.data?.[0];
+  if (!last || Date.now() - new Date(last.scanned_at).getTime() > 15 * 60 * 1000 || last.quality < 0.35) {
+    return reply(token, [{
+      type: "text", text: "尚未取得本次有效的心率結果。可再量一次，也可以直接看方案。",
+      quickReply: quick([{ label: "再量一次", uri: LIFF_URL }, { label: "略過", data: "rlx|scan|skip" }])
+    }]);
+  }
+  await relaxUpdate(s.user_id, { status: "preview" });
+  return relaxPreview(token, { ...s, status: "preview" }, Number(last.bpm));
+}
+async function relaxPostback(sub: string, token: string, data: string) {
+  if (!relaxAllowed(sub)) return reply(token, [{ type: "text", text: "放鬆測試目前未開放。" }]);
+  const [prefix, kind, detail, value] = data.split("|");
+  if (prefix !== "rlx") return;
+  if (kind === "start" && detail === "no") return reply(token, [{ type: "text", text: "好的，這次不會記錄你的放鬆測試回答。" }]);
+  if (kind === "start" && detail === "yes") {
+    const uid = await findUser(sub, true);
+    if (!uid) return;
+    const up = await db.from("digital_relax_pilot_sessions").upsert({
+      user_id: uid, consent_version: RELAX_CONSENT_VERSION,
+      answers: {}, step: 0, status: "quiz", scan_opt_in: false,
+      scan_started_at: null, interest_clicked_at: null,
+      updated_at: new Date().toISOString()
+    });
+    if (up.error) throw up.error;
+    return relaxAsk(token, { user_id: uid, answers: {}, step: 0, status: "quiz", scan_opt_in: false });
+  }
+  const uid = await findUser(sub, false);
+  const s = uid ? await relaxSession(uid) : null;
+  if (!s) return relaxStart(sub, token);
+  if (kind === "resume") return relaxAsk(token, s);
+  if (kind === "back" && s.status === "quiz") {
+    const step = Math.max(0, s.step - 1);
+    const answers = { ...s.answers };
+    delete answers[catalog.relax.questions[step].id];
+    await relaxUpdate(uid!, { step, answers });
+    return relaxAsk(token, { ...s, step, answers });
+  }
+  if (kind === "answer" && s.status === "quiz") {
+    const step = Number(detail), q = catalog.relax.questions[s.step];
+    if (step !== s.step || !q || !q.options.some((o: {value:string}) => o.value === value)) return relaxAsk(token, s);
+    const answers = { ...s.answers, [q.id]: value };
+    const nextStep = s.step + 1;
+    const status = nextStep >= catalog.relax.questions.length ? "scan" : "quiz";
+    await relaxUpdate(uid!, { answers, step: nextStep, status });
+    return status === "scan"
+      ? relaxOfferScan(token, { ...s, answers, step: nextStep, status })
+      : relaxAsk(token, { ...s, answers, step: nextStep });
+  }
+  if (kind === "scan" && s.status === "scan") {
+    if (detail === "skip") {
+      await relaxUpdate(uid!, { status: "preview", scan_opt_in: false, scan_started_at: null });
+      return relaxPreview(token, { ...s, status: "preview" });
+    }
+    if (detail === "yes") {
+      await relaxUpdate(uid!, { scan_opt_in: true, scan_started_at: new Date().toISOString() });
+      return reply(token, [{
+        type: "text",
+        text: "請開啟既有的心率量測頁。完成後回到聊天室，系統會以「我量好了」這則訊息繼續。如果尚未取得數值，也可以略過。",
+        quickReply: quick([{ label: "開始心率量測", uri: LIFF_URL }, { label: "我量好了", text: "我量好了" }, { label: "略過", data: "rlx|scan|skip" }])
+      }]);
+    }
+  }
+  if (kind === "interest" && s.status === "preview") {
+    await relaxUpdate(uid!, { interest_clicked_at: new Date().toISOString() });
+    return reply(token, [{
+      type: "text", text: "已記下你對 NT$1,290 放鬆練習方案的興趣，謝謝！這不是訂單、沒有收款，目前仍屬內部商品測試。"
+    }]);
+  }
+  return relaxAsk(token, s);
+}
+async function relaxDelete(sub: string, token: string) {
+  if (!relaxAllowed(sub)) return reply(token, [{ type: "text", text: "放鬆測試目前未開放。" }]);
+  const uid = await findUser(sub, false);
+  if (uid) {
+    const r = await db.from("digital_relax_pilot_sessions").delete().eq("user_id", uid);
+    if (r.error) throw r.error;
+  }
+  return reply(token, [{
+    type: "text", text: "已刪除放鬆測試中的問卷回答及意願紀錄；原本的保健品資料與心率量測紀錄沒有刪除。如果要刪心率，請在原量測頁另行操作。"
+  }]);
 }
 
 // ---------- 管理：建立選單 ----------
