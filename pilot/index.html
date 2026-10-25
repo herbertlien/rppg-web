@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Deerly 新服務測試｜個人化數位計畫</title>
+<style>
+:root{--bg:#f7f6f1;--ink:#1c2b28;--muted:#61716d;--line:#dce4dc;--green:#2f7d5b;--light:#e8f2ea;--white:#fff;--gold:#f2e9d4}
+*{box-sizing:border-box}body{background:var(--bg);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif;margin:0}
+main{max-width:520px;padding:20px 18px 60px;margin:0 auto}button{font:inherit;cursor:pointer}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0 24px}.brand{font-weight:800;letter-spacing:.03em;color:var(--green);font-size:20px}.testtag{color:var(--muted);font-size:12px;border:1px solid var(--line);padding:4px 9px;border-radius:100px}
+h1{font-size:30px;line-height:1.32;letter-spacing:-.03em;margin:14px 0}h2{font-size:21px;line-height:1.4;margin:8px 0 12px}h3{margin:10px 0 6px;font-size:17px}p{margin:9px 0 14px}
+.muted,.small{color:var(--muted)}.small{font-size:13px}.eyebrow{font-size:12px;color:var(--green);font-weight:800;letter-spacing:.08em}
+.card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 4px 18px rgba(25,45,27,.035)}
+.hero{background:linear-gradient(155deg,#e6efe7,#fffaf1 90%);border:1px solid var(--line);border-radius:24px;padding:24px 20px;margin:0 0 16px}
+.choices{display:grid;gap:9px;margin-top:16px}
+.choice{border:1.5px solid var(--line);background:var(--white);color:var(--ink);border-radius:13px;padding:15px 14px;width:100%;text-align:left;line-height:1.45}
+.choice:hover,.choice:focus-visible{border-color:var(--green)}.choice.picked{background:var(--light);border-color:var(--green)}
+.primary{background:var(--green);border:1px solid var(--green);border-radius:12px;color:#fff;padding:14px 18px;width:100%;font-weight:700}
+.secondary{background:#fff;border:1px solid var(--line);border-radius:12px;color:var(--green);padding:12px 18px;width:100%;font-weight:650}
+.primary[disabled]{opacity:.45;cursor:not-allowed}.row{display:flex;gap:10px}.row>*{flex:1}
+.price{font-size:32px;font-weight:800;color:var(--green);line-height:1.2}.price small{font-size:13px;color:var(--muted);font-weight:500}
+.switcher{display:flex;gap:8px;margin-bottom:15px}.switcher button{flex:1;background:#fff;color:var(--ink);border:1px solid var(--line);padding:11px 6px;border-radius:12px;font-size:14px}.switcher button.on{background:var(--light);border-color:var(--green);color:var(--green);font-weight:700}
+.bullets{padding-left:20px}.bullets li{margin:5px 0}.progress{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin:5px 0 14px}.progress span{display:block;background:var(--green);height:100%;transition:width .2s}
+.pill{display:inline-block;border-radius:99px;background:var(--light);color:var(--green);padding:4px 10px;font-weight:700;font-size:12px}
+.task{padding:12px 0;border-bottom:1px solid var(--line)}.task:last-child{border-bottom:0}
+.notice{background:#fff4e7;border:1px solid #e9d9c0;color:#6d5230;border-radius:12px;padding:12px;font-size:13px}
+hr{border:0;border-top:1px solid var(--line);margin:17px 0}
+label.optin{display:flex;gap:10px;align-items:flex-start;font-size:14px;margin:12px 0}label.optin input{margin-top:7px;accent-color:var(--green)}
+#status{font-size:13px;min-height:22px;margin-top:8px;color:var(--muted)}
+footer{text-align:center;font-size:12px;color:var(--muted);margin:26px 0}
+</style>
+</head>
+<body>
+<main>
+<header><span class="brand">DEERLY / LAB</span><span class="testtag">內部商品測試・未開放付款</span></header>
+<div class="switcher" id="switcher"></div>
+<div id="app" aria-live="polite"></div>
+<footer>個人化內容測試原型｜非醫療診斷、治療或成效保證｜本頁不收款、不上傳問卷答案</footer>
+</main>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script type="module">
+import {catalog,createPreview} from './products.js';
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+let key = ['relax','stage'].includes(params.get('product')) ? params.get('product') : 'relax';
+let page='landing', idx=0, answers={}, report=null, bpm=null, scanStatus='';
+const product = () => catalog[key];
+const h = (tag,css,text) => { const e=document.createElement(tag);if(css)e.className=css;if(text!==undefined)e.textContent=text;return e; };
+const clear = el => {el.replaceChildren();return el;};
+const add=(parent,...kids)=>{parent.append(...kids);return parent;};
+function eventTrack(name,extra={}) {
+  // Prototype-only local event log. This is NOT aggregate analytics.
+  try {
+    const k='deerly_pilot_local_events';
+    const current=JSON.parse(sessionStorage.getItem(k)||'[]');
+    current.push({event:name,product:key,at:new Date().toISOString(),...extra});
+    sessionStorage.setItem(k,JSON.stringify(current.slice(-150)));
+  } catch {}
+}
+function action(label,fn,secondary=false) {
+  const b=h('button',secondary?'secondary':'primary',label);b.type='button';b.onclick=fn;return b;
+}
+function chooseProduct(k) {
+  key=k;page='landing';idx=0;answers={};report=null;bpm=null;scanStatus='';
+  const u=new URL(location.href);u.searchParams.set('product',key);history.replaceState({},'',u);
+  eventTrack('landing_view');render();
+}
+function nav() {
+  const sw=clear($('switcher'));
+  for(const k of ['relax','stage']){
+    const b=h('button',k===key?'on':'',catalog[k].label);
+    b.type='button';b.onclick=()=>chooseProduct(k);sw.append(b);
+  }
+}
+function makeLanding() {
+  const p=product(), root=$('app');
+  const hero=h('section','hero');
+  add(hero,h('div','eyebrow',p.eyebrow),h('h1','',p.title),h('p','muted',p.tagline));
+  const big=h('div','price','NT$'+p.price);
+  add(big,h('small','',' / 全期方案・測試售價'));
+  add(hero,big,action('開始 5 題免費試配',()=>{
+    eventTrack('quiz_start');page='quiz';idx=0;render();
+  }));
+  root.append(hero);
+  const card=h('section','card');
+  add(card,h('h2','','包含哪些內容？'));
+  const list=h('ul','bullets');
+  (p.id==='relax'
+   ? ['依日常情境安排 14 天練習','提供適合個人時段的短任務','可選擇使用既有 rPPG 心率作為獨立參考紀錄']
+   : ['依重要場合與準備天數安排練習','提供 7 天可操作的表達任務','可選擇使用既有 rPPG 心率作為獨立參考紀錄'])
+   .forEach(s=>list.append(h('li','',s)));
+  add(card,list,h('p','small','第一輪僅驗證題目、方案預覽及價格意願；正式 AI 教練、課程音訊、付款和自動推播尚未接通。'));
+  root.append(card);
+}
+function renderQuestion(){
+  const p=product(),q=p.questions[idx],root=$('app');
+  add(root,h('span','eyebrow','第 '+(idx+1)+' / '+p.questions.length+' 題'));
+  const progress=h('div','progress');const bar=h('span');bar.style.width=((idx+1)*100/p.questions.length)+'%';progress.append(bar);root.append(progress);
+  add(root,h('h2','',q.text));
+  const opts=h('div','choices');
+  for (const option of q.options){
+    const b=h('button','choice'+(answers[q.id]===option.value?' picked':''),option.label);
+    b.type='button';
+    b.onclick=()=>{
+      answers[q.id]=option.value;
+      eventTrack('question_answered',{questionId:q.id});
+      idx++;
+      if(idx<p.questions.length){render();}
+      else{
+        try{report=createPreview(p,answers);page='result';eventTrack('quiz_complete');render();}
+        catch(e){idx=p.questions.length-1;alert('尚缺少必要回答，請再試一次。');render();}
+      }
+    };
+    opts.append(b);
+  }
+  root.append(opts);
+  root.append(action(idx>0?'‹ 回上一題':'‹ 回商品介紹',()=>{
+    if(idx===0){page='landing'}else{idx--}render();
+  },true));
+  add(root,h('p','small','僅記錄此瀏覽器分頁內的操作事件，不把問卷答案傳回伺服器。'));
+}
+function renderResult() {
+  const p=product(),root=$('app'),r=report;
+  const top=h('section','hero');
+  add(top,h('span','pill','專屬方案預覽'),h('h1','',r.headline),h('p','',r.reason));
+  root.append(top);
+  const notes=h('section','card');
+  add(notes,h('h2','','你的設計依據'));
+  const ul=h('ul','bullets');r.notes.forEach(s=>ul.append(h('li','',s)));notes.append(ul);root.append(notes);
+  const plan=h('section','card');add(plan,h('h2','','前兩天的任務預覽'));
+  r.tasks.slice(0,2).forEach(t=>{
+    const c=h('div','task');add(c,h('h3','',t.title),h('p','small',t.detail));plan.append(c);
+  });
+  add(plan,h('p','muted','完整 '+p.days+' 天任務與每日提醒屬於未來正式付費交付，這個測試頁不會收款。'));
+  root.append(plan);
+  renderScan(root);
+  const interest=h('section','card');
+  add(interest,h('h2','','這樣的方案，你願意付費嗎？'));
+  const price=h('div','price','NT$'+p.price);
+  add(interest,price,h('p','small','按下方按鈕代表有購買興趣，不是正式下單，也不會扣款。'));
+  interest.append(action('我有興趣，以這個價格購買',()=>registerInterest()));
+  add(interest,h('div','', '' )); const stat=h('div','');stat.id='status';interest.append(stat);
+  interest.append(action('重新填寫問卷',()=>{
+    idx=0;answers={};report=null;page='quiz';eventTrack('quiz_restart');render();
+  },true));
+  root.append(interest);
+}
+function renderScan(root) {
+  const section=h('section','card');
+  add(section,h('h2','','選用：加入你已量測的心率紀錄'));
+  add(section,h('p','small','心率不會決定課程內容，也不能評斷壓力、表達能力或健康狀態。只作為可選的自主觀察；此測試頁不會保存或傳送讀取的數值。'));
+  const checkbox=h('input');checkbox.type='checkbox';checkbox.id='sensor-consent';
+  const label=h('label','optin');
+  add(label,checkbox,h('span','', '我同意這個測試頁暫時讀取既有 Deerly 心率量測紀錄，僅供我在畫面上查看；不跨商品保存或分享。'));
+  section.append(label);
+  const info=h('p','small',bpm!==null?'既有紀錄的最近一次合格心率：約 '+bpm+' 次／分鐘。僅供參考。':'尚未讀取任何心率紀錄。');
+  section.append(action('從原本 LINE 帳號讀取既有量測',async()=>{
+    if(!checkbox.checked){info.textContent='請先勾選同意；也可以直接略過量測。';return;}
+    eventTrack('scan_read_requested');
+    info.textContent='正在登入及讀取紀錄…';
+    try{
+      const {login,recentScans}=await import('../engine/api.js');
+      if(!await login()){info.textContent='登入後請回到本頁，再按一次讀取。';return;}
+      const scans=await recentScans();
+      const s=scans.find(s=>Number.isFinite(Number(s.bpm)) && Number(s.quality)>=0.35);
+      if(!s){info.textContent='目前沒有可顯示的合格紀錄，可以略過，或先使用原本的量測頁。';return;}
+      bpm=Math.round(Number(s.bpm));info.textContent='最近一次合格紀錄：約 '+bpm+' 次／分鐘。這個數值不參與推薦計分。';
+      eventTrack('scan_read_success');
+    }catch(err){
+      info.textContent='目前無法讀取紀錄，請略過量測繼續體驗。';
+      eventTrack('scan_read_failed');
+    }
+  }));
+  const link=h('a','small','開啟既有心率量測頁（新分頁）');
+  link.href='../';link.target='_blank';link.rel='noopener noreferrer';link.style.display='block';link.style.marginTop='10px';
+  section.append(link,info);root.append(section);
+}
+async function registerInterest() {
+  eventTrack('interest_click',{price:product().price});
+  const msg='我對 Deerly 測試商品「'+product().label+'」有興趣；測試價 NT$'+product().price+'。目前尚未收款。';
+  const status=$('status');status.textContent='已記下此裝置的興趣點擊（僅本機）。';
+  // Only a deliberate click can request LINE chat transmission.
+  try{
+    if(window.liff && liff.isInClient && liff.isInClient()){
+      if(!liff.id) await liff.init({liffId:'2012160129-CwL40nTW'});
+      await liff.sendMessages([{type:'text',text:msg}]);
+      status.textContent='已向此 LINE 官方帳號送出興趣訊息（若帳號允許傳送）。不代表已下單。';
+      return;
+    }
+  }catch(e) {/* fall back to clipboard */ }
+  try {await navigator.clipboard.writeText(msg);status.textContent='已複製意願訊息。可自行貼到 Deerly LINE 官方帳號；目前沒有集中收集名單。';}
+  catch {status.textContent='你可以截圖這頁，或手動傳送：「'+msg+'」';}
+}
+function render(){
+  nav();clear($('app'));
+  if(page==='landing') makeLanding();
+  else if(page==='quiz') renderQuestion();
+  else renderResult();
+  window.scrollTo(0,0);
+}
+eventTrack('landing_view');render();
+</script>
+</body>
+</html>
