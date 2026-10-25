@@ -7,12 +7,12 @@ export function relaxFlowFromSearch(search) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidate || '') ? candidate : null;
 }
 export async function notifyRelaxScan({flow, saved, quality, liffClient}) {
-  if (!saved || !Number.isFinite(quality) || quality < 0.35) return '尚未取得已保存的合格心率；可以回聊天室略過，不影響方案。';
+  if (!saved || !Number.isFinite(quality) || quality < 0.35) return '這次沒有量到清楚的心跳。可以再量一次，或回聊天室直接看計畫。';
   try {
-    if (!liffClient.isInClient()) return '請回 LINE 聊天室，點「我量好了」繼續；也可以略過。';
-    await liffClient.sendMessages([{type:'text',text:`放鬆量測完成 ${flow}`}]);
-    return '已通知聊天室。按「回聊天室」查看方案。';
+    if (!liffClient.isInClient()) return '請回 LINE 聊天室，輸入「我量好了」看結果。';
+    await liffClient.sendMessages([{type:'text',text:'我量好了'}]);
+    return '完成！按「回聊天室」看你的結果和計畫。';
   } catch {
-    return '已保存，但無法自動通知。請回聊天室點「我量好了」，或直接略過。';
+    return '已記下。請回聊天室輸入「我量好了」看結果。';
   }
 }

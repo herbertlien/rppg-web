@@ -853,7 +853,9 @@ function createPreview(p, a) {
       headline:`適合你的 ${p.days} 天・每天 ${minutes} 分鐘練習`,
       reason:`你想在${context}練習，所以計畫都排在固定時段，每天一個做得到的小步驟。`,
       notes:[focus, a.reminder==='none'?'你選擇不接收提醒':`你偏好的提醒時段：${label(p,'reminder',a.reminder)}`],
-      tasks:Array.from({length:14},(_,i)=>({day:i+1,title:`第 ${i+1} 天・${kinds[i%kinds.length]}`,detail:`${minutes} 分鐘；做完記下一句感受就好。`}))
+      tasks:Array.from({length:14},(_,i)=>(i===6||i===13
+        ?{day:i+1,title:`第 ${i+1} 天・前後對比：練習前後各量一次心跳`,detail:`${minutes} 分鐘；看看${i===6?'一週':'兩週'}來身體的變化，不想量也可以略過。`}
+        :{day:i+1,title:`第 ${i+1} 天・${kinds[i%kinds.length]}`,detail:`${minutes} 分鐘；做完記下一句感受就好。`}))
     };
   }
   const scenes={interview:'面試',presentation:'簡報',pitch:'客戶提案',conversation:'重要對話'};
@@ -914,10 +916,32 @@ function relaxScanCard(data, uri) {
     {note:'影像只在手機上處理、不上傳；量測頁會另外詢問是否保存。這不是醫療檢測。'}
   ],[action(uri?'開始量測':'量一下',uri||data('rlx|scan|yes'),true,!!uri),action('略過，直接看計畫',data('rlx|scan|skip'))]);
 }
-function relaxResultCard(preview, bpm) {
-  const observed = Number.isFinite(bpm)?[`這次量到的心跳約每分鐘 ${Math.round(bpm)} 下，只是給你參考，不影響計畫。`]:[];
+// Before/after heart rate around one minute of slow breathing. Self-observation only, never feeds the plan.
+function relaxHeartCard(before, after) {
+  const b=Math.round(before), a=Number.isFinite(after)?Math.round(after):null, d=a===null?0:b-a;
+  const big=(text,label,color)=>({type:'box',layout:'vertical',flex:1,contents:[
+    {type:'text',text,size:'3xl',weight:'bold',color,align:'center',wrap:true},{type:'text',text:label,size:'xs',color:relaxColors.muted,align:'center',wrap:true}]});
+  const numbers=a===null?[big(String(b),'次／分',relaxColors.deep)]:[
+    big(String(b),'放鬆前',relaxColors.muted),
+    {type:'text',text:'→',size:'xl',color:relaxColors.muted,align:'center',gravity:'center',flex:0,wrap:true},
+    big(String(a),'放鬆後',relaxColors.deep)];
+  const message=a===null?'這次只量了一次。下次可以試試「先量、慢呼吸 1 分鐘、再量」，看看自己的變化。'
+    :d>=3?`慢了 ${d} 下。慢慢呼吸時，心跳跟著放緩是很常見的反應。`
+    :d<=-3?`這次快了 ${-d} 下，可能剛好說話或換了姿勢。下次先靜坐一下再量看看。`
+    :'變化不大，這很常見。多練幾天，身體會慢慢熟悉這個節奏。';
+  return {type:'flex',altText:a===null?`你的心跳：每分鐘 ${b} 下`:`這一分鐘，你的心跳：${b} → ${a}`,
+    contents:{type:'bubble',size:'mega',
+      header:{type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,paddingAll:'20px',spacing:'sm',contents:[
+        paragraph('DEERLY・14 天放鬆練習',{size:'xs',color:relaxColors.deep,weight:'bold'}),paragraph(a===null?'你的心跳':'這一分鐘，你的心跳',{size:'xl',weight:'bold'})]},
+      body:{type:'box',layout:'vertical',backgroundColor:relaxColors.surface,paddingAll:'20px',spacing:'lg',contents:[
+        {type:'box',layout:'horizontal',backgroundColor:relaxColors.sage,cornerRadius:'12px',paddingAll:'16px',contents:numbers},
+        paragraph(message),
+        paragraph('計畫第 7 天和第 14 天會再做一次前後對比，看看兩週來的變化。'),
+        relaxLine({note:'只是自我觀察，不是醫療檢測，也不影響你的計畫；單次差異也可能來自量測誤差。'})]}}};
+}
+function relaxResultCard(preview) {
   return card('你的 14 天放鬆計畫｜'+preview.headline,'你的 14 天放鬆計畫',[
-    preview.headline,preview.reason,...preview.notes,...observed,
+    preview.headline,preview.reason,...preview.notes,
     {note:'練習中覺得不舒服就停下來，不需要憋氣或刻意改變呼吸。'}
   ],[action('資料怎麼使用','rlx|privacy')]);
 }
@@ -1171,25 +1195,29 @@ async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
   message.quickReply = quick([{label:"我量好了",data:relaxData(s)("rlx|done")},{label:"先暫停",data:relaxData(s)("rlx|pause")}]);
   return reply(token,[message]);
 }
-async function relaxPreview(sub: string, token: string, s: RelaxSession, bpm?: number) {
+async function relaxPreview(sub: string, token: string, s: RelaxSession, heart?: {before:number;after?:number}) {
   await relaxMenusTryRestore(sub,s);
   const preview = createPreview(catalog.relax,s.answers);
-  return reply(token,[relaxResultCard(preview,bpm),relaxInterestCard(preview,relaxData(s))]);
+  return reply(token,[...(heart?[relaxHeartCard(heart.before,heart.after)]:[]),relaxResultCard(preview),relaxInterestCard(preview,relaxData(s))]);
 }
 async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
   if (s.status !== "scan" || s.paused || !s.scan_opt_in || !s.scan_started_at) return relaxAsk(sub,token,s);
+  // The scan page saves one reading before and one after a minute of slow breathing.
   const scans = await db.from("scans").select("bpm,quality,scanned_at").eq("user_id",s.user_id)
-    .gte("scanned_at",s.scan_started_at).order("scanned_at",{ascending:false}).limit(1);
+    .gte("scanned_at",s.scan_started_at).order("scanned_at",{ascending:true}).limit(10);
   if (scans.error) throw scans.error;
-  const last = scans.data?.[0], now = Date.now();
-  const time = Date.parse(last?.scanned_at ?? ""), started = Date.parse(s.scan_started_at);
-  if (!last || !Number.isFinite(time) || !Number.isFinite(started) || time < started || time > now || now-time > 15*60e3 ||
-      !Number.isFinite(last.quality) || last.quality < 0.35 || !Number.isFinite(last.bpm) || last.bpm < 30 || last.bpm > 220) {
+  const now = Date.now(), started = Date.parse(s.scan_started_at);
+  const valid = (scans.data ?? []).filter((x: {bpm:number;quality:number;scanned_at:string}) => {
+    const time = Date.parse(x.scanned_at ?? "");
+    return Number.isFinite(time) && Number.isFinite(started) && time >= started && time <= now && now-time <= 15*60e3 &&
+      Number.isFinite(x.quality) && x.quality >= 0.35 && Number.isFinite(x.bpm) && x.bpm >= 30 && x.bpm <= 220;
+  });
+  if (!valid.length) {
     return reply(token,[{type:"text",text:"這次沒有量到清楚的心跳。沒關係，可以再量一次，或直接看計畫。",
       quickReply:quick([{label:"再量一次",uri:relaxScanUrl(s)},{label:"直接看計畫",data:relaxData(s)("rlx|scan|skip")}])}]);
   }
   const next = await relaxUpdate(s,{status:"preview"});
-  return relaxPreview(sub,token,next,last.bpm);
+  return relaxPreview(sub,token,next,{before:valid[0].bpm,after:valid.length>1?valid[valid.length-1].bpm:undefined});
 }
 async function relaxPostback(sub: string, token: string, raw: string) {
   if (!relaxAllowed(sub)) return reply(token,[{type:"text",text:"放鬆測試目前未開放。"}]);

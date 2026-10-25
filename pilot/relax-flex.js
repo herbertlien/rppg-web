@@ -31,10 +31,32 @@ export function relaxScanCard(data, uri) {
     {note:'影像只在手機上處理、不上傳；量測頁會另外詢問是否保存。這不是醫療檢測。'}
   ],[action(uri?'開始量測':'量一下',uri||data('rlx|scan|yes'),true,!!uri),action('略過，直接看計畫',data('rlx|scan|skip'))]);
 }
-export function relaxResultCard(preview, bpm) {
-  const observed = Number.isFinite(bpm)?[`這次量到的心跳約每分鐘 ${Math.round(bpm)} 下，只是給你參考，不影響計畫。`]:[];
+// Before/after heart rate around one minute of slow breathing. Self-observation only, never feeds the plan.
+export function relaxHeartCard(before, after) {
+  const b=Math.round(before), a=Number.isFinite(after)?Math.round(after):null, d=a===null?0:b-a;
+  const big=(text,label,color)=>({type:'box',layout:'vertical',flex:1,contents:[
+    {type:'text',text,size:'3xl',weight:'bold',color,align:'center',wrap:true},{type:'text',text:label,size:'xs',color:relaxColors.muted,align:'center',wrap:true}]});
+  const numbers=a===null?[big(String(b),'次／分',relaxColors.deep)]:[
+    big(String(b),'放鬆前',relaxColors.muted),
+    {type:'text',text:'→',size:'xl',color:relaxColors.muted,align:'center',gravity:'center',flex:0,wrap:true},
+    big(String(a),'放鬆後',relaxColors.deep)];
+  const message=a===null?'這次只量了一次。下次可以試試「先量、慢呼吸 1 分鐘、再量」，看看自己的變化。'
+    :d>=3?`慢了 ${d} 下。慢慢呼吸時，心跳跟著放緩是很常見的反應。`
+    :d<=-3?`這次快了 ${-d} 下，可能剛好說話或換了姿勢。下次先靜坐一下再量看看。`
+    :'變化不大，這很常見。多練幾天，身體會慢慢熟悉這個節奏。';
+  return {type:'flex',altText:a===null?`你的心跳：每分鐘 ${b} 下`:`這一分鐘，你的心跳：${b} → ${a}`,
+    contents:{type:'bubble',size:'mega',
+      header:{type:'box',layout:'vertical',backgroundColor:relaxColors.canvas,paddingAll:'20px',spacing:'sm',contents:[
+        paragraph('DEERLY・14 天放鬆練習',{size:'xs',color:relaxColors.deep,weight:'bold'}),paragraph(a===null?'你的心跳':'這一分鐘，你的心跳',{size:'xl',weight:'bold'})]},
+      body:{type:'box',layout:'vertical',backgroundColor:relaxColors.surface,paddingAll:'20px',spacing:'lg',contents:[
+        {type:'box',layout:'horizontal',backgroundColor:relaxColors.sage,cornerRadius:'12px',paddingAll:'16px',contents:numbers},
+        paragraph(message),
+        paragraph('計畫第 7 天和第 14 天會再做一次前後對比，看看兩週來的變化。'),
+        relaxLine({note:'只是自我觀察，不是醫療檢測，也不影響你的計畫；單次差異也可能來自量測誤差。'})]}}};
+}
+export function relaxResultCard(preview) {
   return card('你的 14 天放鬆計畫｜'+preview.headline,'你的 14 天放鬆計畫',[
-    preview.headline,preview.reason,...preview.notes,...observed,
+    preview.headline,preview.reason,...preview.notes,
     {note:'練習中覺得不舒服就停下來，不需要憋氣或刻意改變呼吸。'}
   ],[action('資料怎麼使用','rlx|privacy')]);
 }

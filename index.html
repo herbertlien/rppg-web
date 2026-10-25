@@ -33,6 +33,8 @@
   .hrunit{font-size:16px;color:var(--mut)}
   .watchrow{display:flex;gap:8px}.watchrow input{flex:1;min-width:0;font-size:16px;padding:8px;border:1px solid #d9d2c5;border-radius:8px}.watchrow button{width:auto;padding:8px 16px}
 .cmp{font-size:17px;margin-top:8px}
+  /* 14 天放鬆練習：只留「量、慢呼吸、再量」，收起保健品用的電量、手錶對照與匯出 */
+  body.relaxpilot #bat,body.relaxpilot #watchTip,body.relaxpilot #csv,body.relaxpilot #dock{display:none!important}
   .bat{margin-top:14px;text-align:left}
   .batbar{display:flex;gap:6px;margin:6px 0}
   .batbar i{flex:1;height:14px;border-radius:7px;background:rgba(127,127,127,.25)}
@@ -184,7 +186,7 @@ function analyze(t, ch, fs = FS) {
   return estimateHR(detrend(pos(r, fs), fs), fs);
 }
 
-import { relaxFlowFromSearch, notifyRelaxScan } from './pilot/relax-liff.js';
+import { relaxFlowFromSearch, notifyRelaxScan } from './pilot/relax-liff.js?v=20261026';
 import { FilesetResolver, FaceLandmarker } from './vendor/vision_bundle.mjs';
 
 const $ = id => document.getElementById(id);
@@ -398,6 +400,7 @@ function relaxDone(r) {
   if (r.quality < QMIN) { $('relaxRes').textContent = '放鬆後這次訊號不夠穩，沒辦法比較。可以再試一次。'; $('relaxBtn').hidden = false; $('relaxBtn').disabled = false; return; }
   const d = Math.round(beforeRes.bpm - r.bpm);
   $('relaxRes').textContent = '放鬆前 ' + Math.round(beforeRes.bpm) + ' → 放鬆後 ' + Math.round(r.bpm) + '（' + (d > 0 ? '慢了 ' + d + ' 下' : d < 0 ? '快了 ' + (-d) + ' 下' : '差不多') + '）。單次差異也可能來自量測誤差。';
+  if (relaxPilotFlow) onScanDone(); // the 14-day pilot keeps the after-breathing reading for the chat comparison
 }
 
 // 一開頁就先載入模型，使用者讀說明的時間就不浪費
@@ -414,13 +417,29 @@ $('csv').onclick = () => {
 
 // ===== LINE 登入與雲端儲存（只送「時間、心率、品質」等數字，不送影像）=====
 const relaxPilotFlow = relaxFlowFromSearch(location.search);
+let relaxSaved = null, relaxNotified = false;
+async function relaxPilotNotify(quality) {
+  if (relaxNotified) return;
+  relaxNotified = true;
+  $('relaxPilotStatus').textContent = await notifyRelaxScan({flow:relaxPilotFlow,saved:true,quality,liffClient:liff});
+}
 if (relaxPilotFlow) {
-  $('relaxPilotReturn').hidden = false;
-  $('relaxPilotBack').onclick = () => {
+  document.body.classList.add('relaxpilot'); document.title = '放鬆前後，看看心跳';
+  document.querySelector('h1').textContent = '放鬆前後，看看心跳';
+  $('intro').innerHTML = '先量一次（30 秒），跟著圓圈慢慢呼吸 1 分鐘，再量一次。<br>明亮光線下正對鏡頭、手機放穩，量的時候別說話。影像不會儲存，只留下數字。';
+  $('go').textContent = '第 1 步：先量一次（30 秒）';
+  document.querySelector('#relax b').textContent = '第 2 步：一分鐘慢呼吸';
+  document.querySelector('#relax p').textContent = '跟著圓圈吸氣 4 秒、吐氣 6 秒。結束後會自動再量一次，比較放鬆前後的心跳。';
+  document.querySelector('#relaxPilotReturn strong').textContent = '量完會把結果帶回聊天室';
+  $('relaxPilotStatus').textContent = '不想量或量不到也沒關係，可以直接回聊天室看計畫。';
+  $('relaxPilotBack').textContent = '回聊天室';
+  $('relaxPilotBack').onclick = async () => {
+    // Leaving after only the first reading still brings that reading back to the chat.
+    if (relaxSaved !== null) await relaxPilotNotify(relaxSaved);
     try {
       if (window.liff?.isInClient()) liff.closeWindow();
-      else $('relaxPilotStatus').textContent = '請切回 LINE 聊天室，點「我量好了」或「略過，看我的方案」。';
-    } catch { $('relaxPilotStatus').textContent = '請關閉這個量測視窗，回聊天室繼續或略過。'; }
+      else $('relaxPilotStatus').textContent = '請切回 LINE 聊天室，輸入「我量好了」看結果。';
+    } catch { $('relaxPilotStatus').textContent = '請關閉這個量測視窗，回聊天室繼續。'; }
   };
 }
 const LIFF_ID = '2012160129-CwL40nTW';
@@ -470,6 +489,7 @@ async function refresh() {
 
 onScanDone = async () => {
   if (!cloud.on) return;
+  const afterBreathing = relaxMode; // run() resets relaxMode before the save below finishes
   if (relaxPilotFlow) $('relaxPilotStatus').textContent = '正在確認量測保存結果…';
   if (!cloud.consented) {
     $('consent').hidden = false;
@@ -487,7 +507,13 @@ onScanDone = async () => {
   $('st').textContent += '；' + msg;
   if (r.status === 200) refresh();
   if (relaxPilotFlow) {
-    $('relaxPilotStatus').textContent = await notifyRelaxScan({flow:relaxPilotFlow,saved:r.status===200,quality:lastResult.quality,liffClient:liff});
+    if (r.status !== 200 || lastResult.quality < QMIN) {
+      $('relaxPilotStatus').textContent = await notifyRelaxScan({flow:relaxPilotFlow,saved:false,quality:lastResult.quality,liffClient:liff});
+    } else if (!afterBreathing) {
+      relaxSaved = lastResult.quality;
+      $('relaxPilotStatus').textContent = '第 1 次記下了。接著做第 2 步的慢呼吸；想先回去也可以，會帶著這次的結果。';
+      $('relax').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else await relaxPilotNotify(lastResult.quality);
     return;
   }
   // 在聊天室裡開啟時，替使用者在聊天室留一句「我量好了」，官方帳號會回覆結果。需要 LIFF 開啟 chat_message.write 權限，沒有就略過

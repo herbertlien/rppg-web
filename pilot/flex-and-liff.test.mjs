@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { catalog,createPreview } from './products.js';
-import { relaxColors,relaxWelcome,relaxScanCard,relaxResultCard,relaxInterestCard } from './relax-flex.js';
+import { relaxColors,relaxWelcome,relaxScanCard,relaxResultCard,relaxInterestCard,relaxHeartCard } from './relax-flex.js';
 import { relaxFlowFromSearch,notifyRelaxScan } from './relax-liff.js';
 const flow='12345678-1234-4234-8234-123456789abc';
 const data=x=>`${x}~${flow}~1`;
 const answers=Object.fromEntries(catalog.relax.questions.map(q=>[q.id,q.options[0].value]));
 const preview=createPreview(catalog.relax,answers);
-const cards=[relaxWelcome(),relaxScanCard(data),relaxScanCard(data,`https://liff.line.me/example/?relaxPilot=${flow}`),relaxResultCard(preview,72),relaxInterestCard(preview,data)];
+const cards=[relaxWelcome(),relaxScanCard(data),relaxScanCard(data,`https://liff.line.me/example/?relaxPilot=${flow}`),relaxResultCard(preview),relaxHeartCard(80,74),relaxHeartCard(80),relaxInterestCard(preview,data)];
 function visit(node,fn){if(!node||typeof node!=='object')return;fn(node);for(const v of Object.values(node))if(Array.isArray(v))v.forEach(x=>visit(x,fn));else visit(v,fn);}
 test('Flex payloads follow bounded LINE bubble/text/action structure',()=>{
   for(const card of cards){
@@ -49,8 +49,8 @@ test('LIFF notification sends only for saved qualifying scans and handles missin
   const messages=[];const liffClient={isInClient:()=>true,sendMessages:async m=>messages.push(m)};
   for(const [saved,quality] of [[false,0.8],[true,0.1],[true,NaN]])await notifyRelaxScan({flow,saved,quality,liffClient});
   assert.equal(messages.length,0);
-  assert.match(await notifyRelaxScan({flow,saved:true,quality:0.8,liffClient}),/已通知/);
-  assert.equal(messages[0][0].text,`放鬆量測完成 ${flow}`);
+  assert.match(await notifyRelaxScan({flow,saved:true,quality:0.8,liffClient}),/完成/);
+  assert.equal(messages[0][0].text,'我量好了');
   liffClient.sendMessages=async()=>{throw new Error('permission denied');};
   assert.match(await notifyRelaxScan({flow,saved:true,quality:0.8,liffClient}),/我量好了/);
   liffClient.isInClient=()=>false;assert.match(await notifyRelaxScan({flow,saved:true,quality:0.8,liffClient}),/回 LINE 聊天室/);

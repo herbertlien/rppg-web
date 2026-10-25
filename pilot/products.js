@@ -72,7 +72,9 @@ export function createPreview(p, a) {
       headline:`適合你的 ${p.days} 天・每天 ${minutes} 分鐘練習`,
       reason:`你想在${context}練習，所以計畫都排在固定時段，每天一個做得到的小步驟。`,
       notes:[focus, a.reminder==='none'?'你選擇不接收提醒':`你偏好的提醒時段：${label(p,'reminder',a.reminder)}`],
-      tasks:Array.from({length:14},(_,i)=>({day:i+1,title:`第 ${i+1} 天・${kinds[i%kinds.length]}`,detail:`${minutes} 分鐘；做完記下一句感受就好。`}))
+      tasks:Array.from({length:14},(_,i)=>(i===6||i===13
+        ?{day:i+1,title:`第 ${i+1} 天・前後對比：練習前後各量一次心跳`,detail:`${minutes} 分鐘；看看${i===6?'一週':'兩週'}來身體的變化，不想量也可以略過。`}
+        :{day:i+1,title:`第 ${i+1} 天・${kinds[i%kinds.length]}`,detail:`${minutes} 分鐘；做完記下一句感受就好。`}))
     };
   }
   const scenes={interview:'面試',presentation:'簡報',pitch:'客戶提案',conversation:'重要對話'};

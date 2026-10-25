@@ -572,25 +572,29 @@ async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
   message.quickReply = quick([{label:"我量好了",data:relaxData(s)("rlx|done")},{label:"先暫停",data:relaxData(s)("rlx|pause")}]);
   return reply(token,[message]);
 }
-async function relaxPreview(sub: string, token: string, s: RelaxSession, bpm?: number) {
+async function relaxPreview(sub: string, token: string, s: RelaxSession, heart?: {before:number;after?:number}) {
   await relaxMenusTryRestore(sub,s);
   const preview = createPreview(catalog.relax,s.answers);
-  return reply(token,[relaxResultCard(preview,bpm),relaxInterestCard(preview,relaxData(s))]);
+  return reply(token,[...(heart?[relaxHeartCard(heart.before,heart.after)]:[]),relaxResultCard(preview),relaxInterestCard(preview,relaxData(s))]);
 }
 async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
   if (s.status !== "scan" || s.paused || !s.scan_opt_in || !s.scan_started_at) return relaxAsk(sub,token,s);
+  // The scan page saves one reading before and one after a minute of slow breathing.
   const scans = await db.from("scans").select("bpm,quality,scanned_at").eq("user_id",s.user_id)
-    .gte("scanned_at",s.scan_started_at).order("scanned_at",{ascending:false}).limit(1);
+    .gte("scanned_at",s.scan_started_at).order("scanned_at",{ascending:true}).limit(10);
   if (scans.error) throw scans.error;
-  const last = scans.data?.[0], now = Date.now();
-  const time = Date.parse(last?.scanned_at ?? ""), started = Date.parse(s.scan_started_at);
-  if (!last || !Number.isFinite(time) || !Number.isFinite(started) || time < started || time > now || now-time > 15*60e3 ||
-      !Number.isFinite(last.quality) || last.quality < 0.35 || !Number.isFinite(last.bpm) || last.bpm < 30 || last.bpm > 220) {
+  const now = Date.now(), started = Date.parse(s.scan_started_at);
+  const valid = (scans.data ?? []).filter((x: {bpm:number;quality:number;scanned_at:string}) => {
+    const time = Date.parse(x.scanned_at ?? "");
+    return Number.isFinite(time) && Number.isFinite(started) && time >= started && time <= now && now-time <= 15*60e3 &&
+      Number.isFinite(x.quality) && x.quality >= 0.35 && Number.isFinite(x.bpm) && x.bpm >= 30 && x.bpm <= 220;
+  });
+  if (!valid.length) {
     return reply(token,[{type:"text",text:"這次沒有量到清楚的心跳。沒關係，可以再量一次，或直接看計畫。",
       quickReply:quick([{label:"再量一次",uri:relaxScanUrl(s)},{label:"直接看計畫",data:relaxData(s)("rlx|scan|skip")}])}]);
   }
   const next = await relaxUpdate(s,{status:"preview"});
-  return relaxPreview(sub,token,next,last.bpm);
+  return relaxPreview(sub,token,next,{before:valid[0].bpm,after:valid.length>1?valid[valid.length-1].bpm:undefined});
 }
 async function relaxPostback(sub: string, token: string, raw: string) {
   if (!relaxAllowed(sub)) return reply(token,[{type:"text",text:"放鬆測試目前未開放。"}]);

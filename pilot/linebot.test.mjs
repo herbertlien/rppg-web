@@ -100,3 +100,13 @@ test('text deletion is idempotent and a previous run button cannot alter a new r
   await f.text('刪除放鬆測試資料');await f.text('刪除放鬆測試資料');
   await f.begin();await f.post(old);assert.equal(f.session().step,0);
 });
+test('before and after breathing readings come back as one comparison card; plan stays the same',async()=>{
+  const f=fixture();await f.complete();await f.click('rlx|scan|yes');
+  const t=Date.now();
+  f.tables.scans.push({user_id:'fake-user',bpm:82,quality:0.8,scanned_at:new Date(t-90e3).toISOString()},{user_id:'fake-user',bpm:75,quality:0.7,scanned_at:new Date(t-1e3).toISOString()});
+  f.session().scan_started_at=new Date(t-120e3).toISOString();
+  await f.text('我量好了');assert.equal(f.session().status,'preview');
+  const out=serialized(f.replies.at(-1));assert.match(out,/82 → 75/);assert.match(out,/慢了 7 下/);assert.equal(f.replies.at(-1).length,3);
+  const plain=fixture();await plain.complete();await plain.click('rlx|scan|skip');
+  assert.deepEqual(f.replies.at(-1)[1],plain.replies.at(-1)[0],'heart rate never changes the plan');
+});
