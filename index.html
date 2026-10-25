@@ -73,6 +73,11 @@
     <div class="mut" id="watchRes" style="margin-top:6px"></div>
   </div>
 </div>
+<div class="card" id="relaxPilotReturn" hidden>
+  <strong>14 天放鬆練習・選用心率量測</strong>
+  <p id="relaxPilotStatus" role="status" aria-live="polite">量完回聊天室接續；不同意保存、相機無法開啟或光線不足，都可以直接回去略過。</p>
+  <button id="relaxPilotBack" class="ghost">回聊天室，繼續或略過</button>
+</div>
 <div class="card" id="relax" hidden>
   <b>一分鐘放鬆挑戰</b>
   <p class="mut">跟著圓圈慢慢呼吸一分鐘，然後再量一次，看看你的心率有沒有降下來。</p>
@@ -179,6 +184,7 @@ function analyze(t, ch, fs = FS) {
   return estimateHR(detrend(pos(r, fs), fs), fs);
 }
 
+import { relaxFlowFromSearch, notifyRelaxScan } from './pilot/relax-liff.js';
 import { FilesetResolver, FaceLandmarker } from './vendor/vision_bundle.mjs';
 
 const $ = id => document.getElementById(id);
@@ -407,6 +413,16 @@ $('csv').onclick = () => {
 };
 
 // ===== LINE 登入與雲端儲存（只送「時間、心率、品質」等數字，不送影像）=====
+const relaxPilotFlow = relaxFlowFromSearch(location.search);
+if (relaxPilotFlow) {
+  $('relaxPilotReturn').hidden = false;
+  $('relaxPilotBack').onclick = () => {
+    try {
+      if (window.liff?.isInClient()) liff.closeWindow();
+      else $('relaxPilotStatus').textContent = '請切回 LINE 聊天室，點「我量好了」或「略過，看我的方案」。';
+    } catch { $('relaxPilotStatus').textContent = '請關閉這個量測視窗，回聊天室繼續或略過。'; }
+  };
+}
 const LIFF_ID = '2012160129-CwL40nTW';
 const API = 'https://gokvjcwjkhhnmckbbyxl.supabase.co/functions/v1/scan';
 const ALGO = 'pos-1';
@@ -454,12 +470,26 @@ async function refresh() {
 
 onScanDone = async () => {
   if (!cloud.on) return;
-  if (!cloud.consented) { $('consent').hidden = false; return; }
+  if (relaxPilotFlow) $('relaxPilotStatus').textContent = '正在確認量測保存結果…';
+  if (!cloud.consented) {
+    $('consent').hidden = false;
+    if (relaxPilotFlow) $('relaxPilotStatus').textContent = '尚未同意量測保存。可以另外同意後重新量測，或回聊天室略過。';
+    return;
+  }
   const dev = /iPhone|iPad/.test(navigator.userAgent) ? 'ios' : /Android/.test(navigator.userAgent) ? 'android' : 'other';
-  const r = await api('save', { bpm: lastResult.bpm, quality: lastResult.quality, validFrames: rows.length, algoVersion: ALGO, device: dev });
+  let r;
+  try { r = await api('save', { bpm: lastResult.bpm, quality: lastResult.quality, validFrames: rows.length, algoVersion: ALGO, device: dev }); } catch {
+    $('st').textContent += '；連線失敗，未確認保存';
+    if (relaxPilotFlow) $('relaxPilotStatus').textContent = '連線失敗，請回聊天室重試或略過。';
+    return;
+  }
   const msg = r.status === 200 ? '已儲存' : r.status === 429 ? '量測太頻繁，未儲存' : r.status === 401 ? '登入已過期，未儲存，請關閉後重開' : '儲存失敗（' + r.status + '）';
   $('st').textContent += '；' + msg;
   if (r.status === 200) refresh();
+  if (relaxPilotFlow) {
+    $('relaxPilotStatus').textContent = await notifyRelaxScan({flow:relaxPilotFlow,saved:r.status===200,quality:lastResult.quality,liffClient:liff});
+    return;
+  }
   // 在聊天室裡開啟時，替使用者在聊天室留一句「我量好了」，官方帳號會回覆結果。需要 LIFF 開啟 chat_message.write 權限，沒有就略過
   if (r.status === 200 && lastResult.quality >= QMIN && liff.isInClient()) {
     try { await liff.sendMessages([{ type: 'text', text: '我量好了' }]); } catch (e) { /* 沒有權限或不在聊天室 */ }
@@ -491,7 +521,7 @@ $('del').onclick = async () => {
       $('ctaBtn').textContent = '回聊天室，繼續下一步 ›';
       $('ctaBtn').onclick = () => { try { liff.closeWindow(); } catch { /* 非 LINE 內 */ } };
       $('chatBtn').remove();
-      document.querySelector('#dock .mut').textContent = '結果已傳到聊天室，回去就能繼續';
+      document.querySelector('#dock .mut').textContent = relaxPilotFlow ? '請依上方保存狀態回聊天室繼續，也可以略過' : '結果已傳到聊天室，回去就能繼續';
     }
     liffOut('已登入 LINE，量測結果可儲存');
     await refresh();

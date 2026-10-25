@@ -1,0 +1,96 @@
+{
+  "type": "flex",
+  "altText": "選用心率量測｜約 30 秒，可直接略過並取得相同方案。",
+  "contents": {
+    "type": "bubble",
+    "size": "mega",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "20px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "text",
+          "text": "DEERLY / LAB",
+          "wrap": true,
+          "size": "sm",
+          "color": "#1F5C42",
+          "weight": "bold"
+        },
+        {
+          "type": "text",
+          "text": "用前鏡頭看看心跳",
+          "wrap": true,
+          "size": "xl",
+          "color": "#1E2A24",
+          "weight": "bold"
+        }
+      ]
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#FFFFFF",
+      "paddingAll": "20px",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "約 30 秒，不用穿戴裝置。原始影像只在手機量測頁處理。",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "不是壓力、情緒或疾病診斷；不量也能取得相同方案。",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "請先選擇是否量測，量測頁的資料保存同意會另外詢問。",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "16px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "button",
+          "style": "primary",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "選擇量測心率",
+            "data": "rlx|scan|yes~00000000-0000-4000-8000-000000000000~0",
+            "displayText": "選擇量測心率"
+          }
+        },
+        {
+          "type": "button",
+          "style": "link",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "略過，看我的方案",
+            "data": "rlx|scan|skip~00000000-0000-4000-8000-000000000000~0",
+            "displayText": "略過，看我的方案"
+          }
+        }
+      ]
+    }
+  }
+}

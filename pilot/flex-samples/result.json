@@ -1,0 +1,98 @@
+{
+  "type": "flex",
+  "altText": "你的 14 天放鬆計畫預覽｜適合你的 14 天・每天 5 分鐘練習。你選擇在「下班後」練習，偏好「短文字引導」。因此計畫以固定時段、可完成的小任務為主。",
+  "contents": {
+    "type": "bubble",
+    "size": "mega",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "20px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "text",
+          "text": "DEERLY / LAB",
+          "wrap": true,
+          "size": "sm",
+          "color": "#1F5C42",
+          "weight": "bold"
+        },
+        {
+          "type": "text",
+          "text": "你的 14 天放鬆計畫",
+          "wrap": true,
+          "size": "xl",
+          "color": "#1E2A24",
+          "weight": "bold"
+        }
+      ]
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#FFFFFF",
+      "paddingAll": "20px",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "適合你的 14 天・每天 5 分鐘練習",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "你選擇在「下班後」練習，偏好「短文字引導」。因此計畫以固定時段、可完成的小任務為主。",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "從短版開始；不追求一次做滿",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "你選擇不接收提醒",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "前兩天可先試短文字練習；語音、動畫與完整課程尚未提供。感到不適請停止，不必憋氣或強迫調整呼吸。",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "16px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "button",
+          "style": "link",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "完整資料說明",
+            "data": "rlx|privacy",
+            "displayText": "完整資料說明"
+          }
+        }
+      ]
+    }
+  }
+}

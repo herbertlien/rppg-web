@@ -1,56 +1,71 @@
-# 14 天放鬆計畫：LINE Chatbot 測試操作手冊
+# 14 天放鬆練習：第一階段開發與測試手冊
 
-> 截至 2026-10-25：程式已寫在測試分支，**沒有部署、沒有正式收款**。此手冊是部署前檢查表，不代表官方帳號目前已能使用「放鬆測試」。
+> 2026-10-25。只在 `pilot-two-digital-products-20261025` 開發；未部署、無收款。這份文件不授權修改正式 LINE Webhook、Rich Menu、Supabase 或會員資料。任何影響正式 Deerly 的操作須另得使用者確認。
 
-## 用戶體驗：只用原有 LINE 官方帳號
+## 聊天室流程
 
-1. 受邀測試者對原本 Deerly 官方帳號傳送「放鬆測試」。
-2. Chatbot 先顯示專屬同意說明（與保健品問卷分開）。
-3. 同意後，Chatbot 用 **Quick Replies** 逐題詢問 5 題，無須跳到外部問卷網站。
-4. 問完後可選「同意，量測心率」或「略過，看我的方案」。
-5. 選量測者由 LINE 快速回覆開啟原本的 rPPG **LIFF** 頁；影像分析仍發生在手機上的 LIFF 頁面。原頁保存與刪除說明獨立生效。
-6. 原 LIFF 成功保存量測後，在聊天室送出「我量好了」；Bot 只取本次開始後、訊號品質足夠的新紀錄，以參考數值附在預覽中。若無新紀錄，可略過。
-7. Bot 在聊天室顯示個人化原因、前兩天練習任務及 NT$1,290 測試價格，詢問「有興趣嗎？」。按鈕只記錄意願，**不扣款**。
-8. 使用者可輸入「刪除放鬆測試資料」刪除放鬆問卷和意願紀錄，不會刪除原本保健品或心率紀錄。
+1. 白名單受邀者輸入「放鬆測試」，收到奶油底／森林綠的 Flex 歡迎卡；可先查閱「完整資料說明」。不同意不建立問卷或會員。
+2. 明確同意後，用 Quick Reply 一次回答一題，共五題：時段、每天分鐘、持續障礙、引導形式、提醒偏好。
+3. 可上一題、先暫停。輸入「放鬆測試」選「繼續」恢復，也可明確重做。保健品舊進度不變；原生 Rich Menu 保持原狀，放鬆題請用各題訊息上的 Quick Reply。
+4. 完成後收到心率選用卡。選「略過」直接取得相同的個人化預覽；選量測才開啟原有 rPPG LIFF 相機頁，另依量測頁的獨立同意保存數字。
+5. 放鬆專用 LIFF 連結帶本次 `relaxPilot` ID。成功保存且品質合格時傳送「放鬆量測完成 <本次 ID>」，按「回聊天室」接續。相機拒絕、光線不足、未登入、拒絕保存、網路失敗或無訊息權限時，都能回聊天室略過；自動訊息失敗可手動點「我量好了」。一般量測原有「我量好了」訊息保持不變。
+6. 結果卡說明個人化依據與偏好；意願卡展示 Day 1–2 短文字任務及 NT$1,290 測試價。語音／動畫、完整課程、購買及通知均未提供，不能當作已交付。
+7. 點興趣只記錄時間，不產生訂單或付款。輸入「刪除放鬆測試資料」或按卡片刪除，只移除放鬆問卷、同意及意願，不刪原心率、保健品或會員。
 
-**關鍵：LINE 是入口、問卷與交付介面；原有 GitHub Pages 只託管 LIFF 相機頁和圖片；Supabase 接收 LINE Webhook、存放問卷與回傳結果。此流程不需要 Cloudflare。**
+## 程式與資料隔離
 
-## 源碼
+- `pilot/relax-flex.js`：四種可重用 Flex 卡片、完整揭露；繁中 altText、文字換行、最多一個主 CTA。使用 Deerly 原色，深綠按鈕配白字，文字對比至少 WCAG AA 4.5:1。
+- `pilot/products.js`：原有五題與規則預覽；不由心率決定方案。本輪不修改第二款商品。
+- `backend/linebot/handler.ts`：`rlx|` 專用路由，預設關閉、白名單限制、分次同意、暫停、恢復、刪除。
+- `flow_id` 和 `revision` 綁定按鈕；資料庫 compare-and-set 防止舊卡片、連點或跨 instance 併發推進兩次。重複同意不清進度；重複意願不改首次時間。刪除後舊流程按鈕不可改新流程。
+- `pilot/relax-liff.js`、根目錄 `index.html`：擴充既有量測頁的返回與通知，不新增影像上傳、不改正式 API URL 或預設登入流程。
+- `backend/schema-digital-relax-pilot.sql`：只建／擴充獨立測試表，外鍵沿用 `users(id)`，RLS 開啟，僅 `service_role` 存取。五題答案與同意時間存於這張表，不寫 `quiz_sessions`、`intakes`、`packs`、原保健品 `consents`。
+- 只有同意量測後才讀取原 `scans`。只呈現本次選量測之後、15 分鐘內、非未來、品質 ≥ 0.35、有限且 30–220 bpm 的紀錄；未合格可略過。心率不複製到放鬆表。
+- 同意起最多保留 30 天，作答不延長。到期讀取會刪除；無活動資料須在**獨立測試資料庫**每日執行 `backend/cleanup-digital-relax-pilot.sql`。未建立清理排程前不得邀請測試者。上線前仍須正式隱私審查。
 
-- `backend/linebot/handler.ts`：新增以 `rlx|` 開頭的事件處理、對話、心率完成訊息及興趣記錄。
-- `pilot/products.js`：沿用可配置的五題問卷和規則式 14 天預覽產生器。
-- `backend/linebot/build.mjs`：把上述設定連同既有規則打包到 Edge Function。
-- `backend/linebot/index.ts`：重新產生的完整部署候選檔；尚未發布。
-- `backend/schema-digital-relax-pilot.sql`：獨立存放放鬆測試的 Supabase 資料表。
+## 本機驗證（全合成資料，無正式 API）
 
-## 在原本官方帳號進行限定測試：部署前必做
+需 Node.js 24（測試使用內建 TypeScript stripping，可能顯示實驗性警告），由 repo 根目錄執行：
 
-1. 確認可回復至上一版 `linebot` Edge Function 的方式，先備份現行已部署版本。
-2. 在 Supabase SQL Editor 執行 `backend/schema-digital-relax-pilot.sql`，確認只新增 `digital_relax_pilot_sessions`，不改 `quiz_sessions`、`intakes`、`packs`。
-3. 在既有 `linebot` Function 設置以下 Secrets：
-   - `RELAX_PILOT_ENABLED=1`：僅啟用限定測試路由；未設定時不會啟動。
-   - `RELAX_PILOT_LINE_SUBS=<一個或多個受邀 LINE userId，以逗號分隔>`；既有 `ADMIN_LINE_SUBS` 裡的管理員也可測。
-4. 本機從 repo 根目錄跑 `node backend/linebot/build.mjs`，確認生成的 `backend/linebot/index.ts` 已包含放鬆流程，且原本保健品流程未變。
-5. 部署新 `backend/linebot/index.ts` 到**目前 LINE Messaging API Webhook 指向的原 Supabase `linebot` Function**。不必修改 LINE 官方帳號 webhook URL，不必新建 LINE 帳號，也不要先更動既有 Rich Menu。
-6. 用在白名單內的 LINE 使用者傳送「放鬆測試」。沒有列入白名單的使用者，即使輸入相同指令也只會看到未開放訊息。
-7. 用兩支不同手機的 LINE App（建議 iOS 和 Android）分別測：同意、5 題、返回上題、量測、跳過、結果、意願、刪除資料；另外確認「開始問卷」「今日電量」「我的組合」原有入口仍正常。
-8. 測試結束後將 `RELAX_PILOT_ENABLED` 改為 `0`，或回復先前的 Function 版本。
+```bash
+node pilot/test.mjs
+node backend/linebot/build.mjs
+node --test engine/engine.test.mjs pilot/linebot.test.mjs pilot/flex-and-liff.test.mjs
+node pilot/export-flex.mjs
+```
 
-**提醒**：程式碼已完成基本規則檢查，但尚未在真實 LINE App、Supabase 和金流環境測試，因此不能視為可直接營運的完成品。
+Webhook 測試執行**打包後的 index.ts**，模擬 Supabase、LINE API，驗證 HMAC 簽章；不讀取網路或正式會員。涵蓋五題、拒絕、錯誤選項、上一題、暫停／恢復、白名單、關閉開關、資料庫故障、過期紀錄、舊卡片、重送／連點、跨 instance 併發、心率新鮮度與品質、意願、刪除，以及舊保健品作答恢復。會員 LIFF 入口是靜態回歸檢查，真實會員頁登入仍待手機驗證。
 
-## 需要檢查的邊界情境
+四個 `pilot/flex-samples/*.json` 使用虛構 flow ID 與範例偏好，不含會員資料。將各檔的 **`contents` 物件**貼到 LINE Flex Message Simulator 可預覽；完整 JSON 可供 API 審查。這是有效結構的本機測試，尚未向 LINE API 做官方驗證，也未取得 LINE App 截圖。
 
-- 未在白名單的人不應能填寫試驗問卷。
-- 使用者拒絕同意時不能建立試驗資料。
-- 同一人同時有舊保健品問卷進度，不應因測試而覆寫舊進度；若 Rich Menu 正處於舊問卷狀態，介面可能有干擾，需做實機 UI 測試。
-- 開相機拒絕權限、弱光、未保存、訊號品質不足時，必須能略過。
-- 舊心率紀錄不能被當作本次新量測。
-- LIFF 的 `liff.sendMessages` 僅在支援條件下可用；若沒有傳送訊息，使用者可回聊天室手動輸入「我量好了」。
-- 「有興趣」只能記錄為 `interest_clicked_at`；沒有付款成功事件，不可當作成交。
-- 本測試用戶的資料保留期限、刪除、隱私文字與定價須經正式審查才能公測。
+可選的真實 PostgreSQL 語義測試（WASM 記憶體資料庫，不使用資料庫連線字串）：
 
-## 首輪觀察
+```bash
+npm install --cache /tmp/rppg-npm-cache --prefix /tmp/rppg-sql-check --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.3.14
+PGLITE_MODULE=file:///tmp/rppg-sql-check/node_modules/@electric-sql/pglite/dist/index.js node pilot/sql-check.mjs
+```
 
-- 先用 5–10 位受邀測試者，人工記錄能否不靠教學完成 LINE 問卷、LIFF 量測和回到聊天室。
-- 測試「你願不願意以 NT$1,290 購買完整 14 天方案」並記錄反對理由。
-- 下一步再增加真正付款、可計算分母的訪客／體驗漏斗和完整 14 天交付。
+驗證 migration 重跑、舊表升級、RLS／角色權限、保留期限清理、回退重跑及原表資料保持。PGlite 不代表正式 Supabase 整合驗證。
+
+## 測試環境準備與回退（本輪不執行部署）
+
+1. 先取得後續測試環境使用範圍的確認。必須是獨立非正式 Supabase、合成測試帳號及可隔離的 LINE／LIFF 測試設定；現有 LIFF 原始碼仍含正式 scan URL，**不得直接用此網址測試正式會員**。手機整合前須另行準備測試 API endpoint 和對應 LIFF 設定，不在本輪動正式設定。
+2. 在該測試資料庫套用 `schema-digital-relax-pilot.sql`。先檢查既有 `users(id uuid)` 與 Supabase 角色，再重跑驗證；不可對正式資料庫執行。安排每日清理。
+3. 測試 Function 需 `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`；僅在安全設定提供測試值。`RELAX_PILOT_ENABLED` 預設不是 `1`，測試時才開；`RELAX_PILOT_LINE_SUBS` 放測試 ID，`ADMIN_LINE_SUBS` 管理員亦可參與。不要啟用 `TEST_APPROVE`。
+4. 保存上一版測試 Function bundle，測試整合須明確指向測試環境。本輪不部署、不呼叫 `setup`、不新增或覆蓋任何 Rich Menu、不接金流。
+5. 回退：停用測試開關，回復上一版**測試** Function；必要時在測試資料庫執行 `rollback-digital-relax-pilot.sql`，只移除獨立測試表、不用 CASCADE，可重跑。這會刪除試驗資料，須確認用途；不是正式環境回退操作授權。
+
+## iOS／Android 手機驗收（全部尚未執行）
+
+兩個平台各自記錄 OS、LINE 版本與截圖；390px、360px 寬度、文字放大、深色模式都要確認：
+
+- [ ] 四張 Flex 卡無文字／按鈕截斷，altText、朗讀順序可理解；原生聊天背景／Quick Reply 依 LINE 外觀。
+- [ ] 歡迎→完整說明→拒絕不建紀錄；同意→五題→上一題→暫停→恢復；連點不跳題。
+- [ ] 相機拒絕、弱光、未登入、未同意保存、網路中斷皆可回聊天室略過。
+- [ ] 量測正常保存後，自動通知／無 sendMessages 權限手動接續皆可；舊紀錄不出現。
+- [ ] 關閉 LIFF 後回正確聊天室；過期連結與重做不混用本次紀錄。
+- [ ] 結果個人化有依據，兩天任務明確標為預覽，興趣不是付款、不開啟提醒。
+- [ ] 保健品問卷填到一半再做放鬆問卷，原選單不被替換；返回原題、我的組合、我的 Deerly／會員入口正常。
+- [ ] 刪除只刪放鬆資料；確認 30 天清理已在測試環境運作。
+
+**目前可審查程式碼與本機模擬結果，尚不能進入受邀用戶實測。** 仍待獨立測試服務／LIFF 設定、官方 Flex 驗證、兩平台手機驗收、隱私與保留期限確認；不需要也未取得正式上線授權。

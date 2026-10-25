@@ -3,6 +3,10 @@
 > **實驗版（2026-10-25），不收款、不開放正式課程、不修改目前 Deerly 保健品流程。**  
 > 位於獨立 Git 分支 `pilot-two-digital-products-20261025`，等檢查完才考慮整合與部署。
 
+## 第一階段交付（2026-10-25）
+
+本輪僅完善 `relax` 的原生 LINE Chatbot，包含四張 Flex 卡、五題狀態防護與 LIFF 返回；`stage` 不變。審查摘要見 [PHASE1-REVIEW.md](PHASE1-REVIEW.md)，目前流程、測試與手機驗收以 [LINE-CHATBOT.md](LINE-CHATBOT.md) 為準。以下兩商品網頁是既有展示原型，不是本輪對外入口。
+
 ## 實驗的兩個產品
 
 | Product ID | 商品 | 問卷 | 可選 rPPG | 首輪測試標價 | 交付預覽 |
@@ -25,7 +29,7 @@ python3 -m http.server 8000
 
 手機 rPPG 的讀取**並非必要條件**，且必須使用者主動勾選同意、按下讀取，才動態載入既有 LINE + Supabase 的唯讀掃描 API。首次登入需要回到測試頁再按一次。當資料無法讀取時，問卷和結果仍可正常使用。不跨產品持久保存掃描資料。
 
-`pilot/products.js` 為可替換題目與規則，`pilot/index.html` 是獨立展示介面，不修改原 `engine/data/questions.json`、`linebot`、`intake`、正式 LINE 選單或正式資料表。
+`pilot/products.js` 為可替換題目與規則，`pilot/index.html` 是獨立展示介面，不修改原 `engine/data/questions.json`、`intake`、正式 LINE 選單或正式資料表；測試分支的 `linebot` 擴充見上述手冊，尚未部署。
 
 ## 已完成 / 未完成
 
