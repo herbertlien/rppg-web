@@ -2,9 +2,13 @@
 
 只在 `pilot-two-digital-products-20261025` 開發。正式 Deerly 的 Supabase、LINE 官方帳號、Webhook、圖文選單、會員與 GitHub Pages 一律不動。本工具**僅產生檔案，不部署、不呼叫服務、不開資料庫連線**。
 
+## 本次已授權的測試 Rich Menu 例外
+
+使用者已同意在新建測試帳號 `2012194250`／`@607idvzb` 加入五題大字選單。產物的「舊保健品／全帳號選單管理」仍封鎖；專用 adapter 經測試專案與 bot 身分核對後才可使用。詳見 [../relax-menus/README.md](../relax-menus/README.md)。已存在的測試資料庫只需執行新增的 `schema-digital-relax-menu.sql`，不要重跑整套新資料庫 migrations。
+
 ## 已備妥與目前限制
 
-- 準備工具會在 checkout 以外的新目錄產生 `site/`、三個 Supabase Functions、四份新測試資料庫 migrations、清理與回退腳本。
+- 準備工具會在 checkout 以外的新目錄產生 `site/`、三個 Supabase Functions、五份新測試資料庫 migrations、清理與回退腳本。
 - 原始碼不改正式連線設定；**只在產物中**替換為指定的測試 Supabase、LINE Login Channel／LIFF、網站網址。
 - 產物中不能殘留已知正式專案、LINE ID 或正式網站識別；Function 必須有 `RELAX_ISOLATED_TEST=1` 且 `SUPABASE_URL` 完全符合設定，否則在建立 DB client 前拒絕啟動。
 - 產物的 LINE Rich Menu 管理入口已封鎖，既有選單切換呼叫亦不對外送出。沒有金流設定或部署指令。

@@ -54,6 +54,7 @@ export function prepare(configPath,output){
     cpSync(join(root,'index.html'),join(site,'index.html'));
     for(const dir of ['vendor','engine','me','quiz','review','menus','cards'])cpSync(join(root,dir),join(site,dir),{recursive:true});
     mkdirSync(join(site,'pilot'));
+    if(existsSync(join(root,'pilot/relax-menus')))cpSync(join(root,'pilot/relax-menus'),join(site,'pilot/relax-menus'),{recursive:true});
     for(const name of ['relax-liff.js','products.js'])cpSync(join(root,'pilot',name),join(site,'pilot',name));
     // Drop development-only files from the public website.
     for(const path of files(site))if(['.md','.mjs'].includes(extname(path))&&!path.includes('/vendor/'))rmSync(path);
@@ -67,7 +68,7 @@ export function prepare(configPath,output){
       const client=text.indexOf('const db = createClient(');if(client<0)throw new Error('Cannot install project guard');
       text=text.slice(0,client)+guard+text.slice(client);
       if(name==='linebot'){
-        // Never create/update/delete rich menus, even with mistakenly supplied management requests.
+        // Legacy supplement/global menu administration stays blocked. The separate test-only adapter is identity-locked.
         text=text.replace('async function setupMenus() {','async function setupMenus() {\n  throw new Error("Rich menu setup disabled in isolated test artifacts");');
         text=text.replace('async function line(path: string, method = "POST", body?: unknown, host = "api.line.me") {',
           'async function line(path: string, method = "POST", body?: unknown, host = "api.line.me") {\n  if (path.includes("/richmenu")) return {};');
@@ -75,7 +76,7 @@ export function prepare(configPath,output){
       }
       mkdirSync(join(supabase,'functions',name),{recursive:true});writeFileSync(join(supabase,'functions',name,'index.ts'),text);
     }
-    const migrations=['schema.sql','schema-intake.sql','schema-linebot.sql','schema-digital-relax-pilot.sql'];
+    const migrations=['schema.sql','schema-intake.sql','schema-linebot.sql','schema-digital-relax-pilot.sql','schema-digital-relax-menu.sql'];
     migrations.forEach((name,i)=>{
       const pre=i===0?"-- Fresh, empty TEST database only. Never import production data.\ndo $$ begin if to_regclass('public.users') is not null then raise exception 'Refusing bootstrap: users table already exists'; end if; end $$;\n":'';
       writeFileSync(join(supabase,'migrations',`2026102500000${i}_${name}`),pre+readFileSync(join(root,'backend',name),'utf8'));

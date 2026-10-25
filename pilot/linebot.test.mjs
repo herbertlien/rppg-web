@@ -1,81 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-import { stripTypeScriptTypes } from 'node:module';
-import { createHmac, webcrypto } from 'node:crypto';
-import { catalog } from './products.js';
+import {catalog} from './products.js';
+import {fixture,source} from './linebot-test-fixture.mjs';
 
-// Run the actual generated Edge Function, including signature verification and routing.
-// All network is rejected except the in-memory LINE reply/menu API mock.
-const source = stripTypeScriptTypes(readFileSync(new URL('../backend/linebot/index.ts',import.meta.url),'utf8').replace(/^import .*createClient.*;$/m,''));
-function fixture({enabled=true,allow='invited',admin='',failTable=null,sharedTables=null}={}) {
-  const tables=sharedTables ?? {users:[{id:'fake-user',line_sub:'invited'}],digital_relax_pilot_sessions:[],quiz_sessions:[],consents:[],packs:[],scans:[],rich_menus:[],intakes:[]};
-  const calls=[], writes=[], replies=[];
-  let serve;
-  class Query {
-    constructor(table){this.table=table;this.filters=[];this.mode='select';this.limitN=Infinity;}
-    select(){return this;}
-    eq(k,v){this.filters.push(r=>r[k]===v);return this;}
-    gte(k,v){this.filters.push(r=>r[k]>=v);return this;}
-    order(k,{ascending}){this.sort={k,ascending};return this;}
-    limit(n){this.limitN=n;return this;}
-    maybeSingle(){this.singleRow=true;return this;}
-    single(){this.singleRow=true;return this;}
-    insert(v){this.mode='insert';this.values=v;return this;}
-    upsert(v,options){this.mode='upsert';this.values=v;this.options=options;return this;}
-    update(v){this.mode='update';this.values=v;return this;}
-    delete(){this.mode='delete';return this;}
-    then(resolve,reject){return Promise.resolve().then(()=>{
-      calls.push({table:this.table,mode:this.mode});
-      if(this.table===failTable)return {data:null,error:new Error('simulated DB unavailable')};
-      let rows=tables[this.table];assert.ok(rows,`Unexpected table ${this.table}`);
-      let selected=rows.filter(r=>this.filters.every(f=>f(r)));
-      if(this.mode!=='select')writes.push({table:this.table,mode:this.mode});
-      if(this.mode==='delete'){tables[this.table]=rows.filter(r=>!selected.includes(r));}
-      if(this.mode==='update')for(const r of selected)Object.assign(r,structuredClone(this.values));
-      if(['insert','upsert'].includes(this.mode)){
-        const v=structuredClone(this.values);
-        const key=this.table==='users'?'line_sub':'user_id';
-        let old=this.mode==='upsert'?rows.find(r=>r[key]===v[key]):null;
-        if(!old){old={id:'fake-created',...v};rows.push(old);}
-        else if(!this.options?.ignoreDuplicates)Object.assign(old,v);
-        selected=[old];
-      }
-      if(this.sort)selected.sort((a,b)=>(a[this.sort.k]>b[this.sort.k]?1:-1)*(this.sort.ascending?1:-1));
-      selected=selected.slice(0,this.limitN);
-      return {data:structuredClone(this.singleRow?selected[0]??null:selected),error:null};
-    }).then(resolve,reject);}
-  }
-  const variables={RELAX_PILOT_ENABLED:enabled?'1':'0',RELAX_PILOT_LINE_SUBS:allow,ADMIN_LINE_SUBS:admin,LINE_CHANNEL_SECRET:'synthetic-test-secret'};
-  vm.runInNewContext(source,{
-    createClient:()=>({from:table=>new Query(table)}),
-    Deno:{env:{get:n=>variables[n]},serve:fn=>{serve=fn;}},
-    fetch:async(url,options)=>{
-      const path=new URL(url).pathname;
-      assert.equal(new URL(url).host,'api.line.me','no external network');
-      const body=options.body?JSON.parse(options.body):null;
-      if(path==='/v2/bot/message/reply'){assert.ok(body.messages.length<=5);replies.push(body.messages);}
-      else assert.match(path,/^\/v2\/bot\/user\/invited\/richmenu/);
-      return new Response('{}');
-    },Response,URL,URLSearchParams,TextEncoder,crypto:webcrypto,btoa,console:{error:()=>{}}
-  });
-  async function event(event,sub='invited',signature=true){
-    const raw=JSON.stringify({events:[{...event,replyToken:'synthetic-reply',source:{userId:sub}}]});
-    const sig=signature?createHmac('sha256',variables.LINE_CHANNEL_SECRET).update(raw).digest('base64'):'bad';
-    const r=await serve(new Request('https://test.invalid',{method:'POST',headers:{'x-line-signature':sig},body:raw}));
-    assert.equal(r.status,signature?200:401);
-    return replies.at(-1);
-  }
-  const text=(text,sub)=>event({type:'message',message:{type:'text',text}},sub);
-  const post=(data,sub)=>event({type:'postback',postback:{data}},sub);
-  const session=()=>tables.digital_relax_pilot_sessions[0];
-  const scoped=data=>`${data}~${session().flow_id}~${session().revision}`;
-  const click=data=>post(scoped(data));
-  const begin=()=>post('rlx|start|yes');
-  const complete=async()=>{await begin();for(let i=0;i<5;i++)await click(`rlx|answer|${i}|${catalog.relax.questions[i].options[0].value}`);};
-  return {tables,calls,writes,replies,event,text,post,begin,session,scoped,click,complete};
-}
 const serialized=x=>JSON.stringify(x);
 const supplementSnapshot=f=>serialized(Object.fromEntries(['quiz_sessions','consents','packs','intakes'].map(t=>[t,f.tables[t]])));
 

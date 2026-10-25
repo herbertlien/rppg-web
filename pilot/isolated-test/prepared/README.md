@@ -14,3 +14,7 @@
 前端上傳完成不代表後端已連通，須完成測試 Function 的部署、Secrets、測試帳號白名單、測試 Webhook 與資料清理，才可驗證完整流程。敏感值只放測試 Supabase Secrets，不放聊天、Git 或前端。
 
 設定步驟及安全限制見 ../README.md。manifest.json 的 deployed:false 表示本次準備時未部署；之後手動部署結果需另行確認，不以 manifest 作為即時狀態來源。
+
+## 大字 Rich Menu 更新
+
+本產物已加入五題選單圖片與測試專用 adapter。使用者已明確允許測試帳號 `2012194250`／`@607idvzb` 的個人選單建立／切換；不允許正式帳號或全帳號預設選單變更。舊版本的選單管理封鎖僅對原 setup 流程保留。更新前需加跑 `backend/schema-digital-relax-menu.sql`，再更新網站 ZIP、測試 linebot 及 `RELAX_PILOT_RICH_MENU_ENABLED=1`。詳見 `pilot/relax-menus/README.md`，不需要重建 scan／intake 或修改 Webhook。

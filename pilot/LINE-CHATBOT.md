@@ -2,6 +2,10 @@
 
 > 2026-10-25。只在 `pilot-two-digital-products-20261025` 開發；未部署、無收款。這份文件不授權修改正式 LINE Webhook、Rich Menu、Supabase 或會員資料。任何影響正式 Deerly 的操作須另得使用者確認。
 
+## Rich Menu 測試例外（使用者本次已同意）
+
+原 Quick Reply 版本已新增大字 Rich Menu。只允許新建的測試帳號 Channel `2012194250`／基本 ID `@607idvzb`，不涉及正式 Deerly。更新步驟、五題圖與恢復機制見 [relax-menus/README.md](relax-menus/README.md)。原本「不改 Rich Menu」限制對正式帳號與既有保健品選單仍有效；測試原始碼與實際部署狀態須分開確認。
+
 ## 聊天室流程
 
 1. 白名單受邀者輸入「放鬆測試」，收到奶油底／森林綠的 Flex 歡迎卡；可先查閱「完整資料說明」。不同意不建立問卷或會員。
