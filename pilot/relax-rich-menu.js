@@ -24,3 +24,13 @@ export function relaxMenuDefinition(question,step) {
   areas.push({bounds:{x:1300,y:1340,width:1090,height:310},action:{type:'postback',data:menu(`rlx|pause|${step}`),displayText:'先暫停'}});
   return {size:relaxMenuSize,selected:true,name:`${relaxMenuSet}-${question.id}`,chatBarText:'放鬆練習・點這裡作答',areas};
 }
+// Account home menu for the test bot: big tiles that send plain text commands.
+export const relaxHomeTiles = [
+  {text:'放鬆練習',title:'放鬆練習',sub:'5 題排出你的 14 天計畫',bounds:{x:110,y:330,width:2280,height:560}},
+  {text:'心跳前後對比',title:'心跳前後對比',sub:'量・慢呼吸 1 分鐘・再量',bounds:{x:110,y:960,width:1110,height:620}},
+  {text:'我的計畫',title:'我的計畫',sub:'看計畫與資料',bounds:{x:1280,y:960,width:1110,height:620}}
+];
+export function relaxHomeMenuDefinition() {
+  return {size:relaxMenuSize,selected:true,name:`${relaxMenuSet}-home`,chatBarText:'Deerly 主選單',
+    areas:relaxHomeTiles.map(t=>({bounds:t.bounds,action:{type:'message',text:t.text}}))};
+}

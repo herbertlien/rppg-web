@@ -32,7 +32,7 @@ async function relaxMenuDiagnose(sub: string, token: string) {
   try{
     const list=await relaxMenuApi("/v2/bot/richmenu/list");
     const n=(list?.richmenus??[]).filter((m: {name?: string})=>m?.name?.startsWith(relaxMenuSet+"-")).length;
-    lines.push("五題共用選單："+(n?`已建立 ${n}/5`:"尚未建立（第一次作答時自動建立）"));
+    lines.push("共用選單（五題＋主選單）："+(n?`已建立 ${n}/6`:"尚未建立（第一次使用時自動建立）"));
   }catch(e){lines.push("五題共用選單："+relaxMenuFailure(e));}
   try{
     const res=await fetch(`${RELAX_MENU_TEST_SITE}/pilot/relax-menus/goal.png?v=${relaxMenuVersion}`,{redirect:"error"});
@@ -62,7 +62,7 @@ async function relaxMenuApi(path: string, method="GET", body?: unknown, image=fa
     body: body===undefined?undefined:image?body as Uint8Array:JSON.stringify(body)});
   if (res.status===404 && method==="GET") return null;
   if (!res.ok) {
-    const stage=image?"UPLOAD":path==="/v2/bot/richmenu"?"CREATE":path==="/v2/bot/richmenu/list"?"LIST":path.includes("/user/")?(method==="GET"?"LOOKUP":"LINK"):"CLEANUP";
+    const stage=image?"UPLOAD":path==="/v2/bot/richmenu"?"CREATE":path==="/v2/bot/richmenu/list"?"LIST":path.includes("/user/all/")?"HOME":path.includes("/user/")?(method==="GET"?"LOOKUP":"LINK"):"CLEANUP";
     throw new Error(`MENU_${stage}_HTTP_${res.status}`);
   }
   const text=await res.text();return text?JSON.parse(text):{};
@@ -99,22 +99,34 @@ function relaxMenuIds(): Promise<Record<string,string>> {
     const list=await relaxMenuApi("/v2/bot/richmenu/list");
     const ids: Record<string,string>={};
     for(const m of list?.richmenus??[])if(typeof m?.name==="string"&&m.name.startsWith(relaxMenuSet+"-"))ids[m.name.slice(relaxMenuSet.length+1)]=m.richMenuId;
-    for(const [step,question] of catalog.relax.questions.entries()){
-      if(ids[question.id])continue;
-      const asset=await fetch(`${RELAX_MENU_TEST_SITE}/pilot/relax-menus/${question.id}.png?v=${relaxMenuVersion}`,{redirect:"error"});
+    const wanted=[...catalog.relax.questions.map((q,step)=>({id:q.id,definition:relaxMenuDefinition(q,step)})),{id:"home",definition:relaxHomeMenuDefinition()}];
+    for(const {id:key,definition} of wanted){
+      if(ids[key])continue;
+      const asset=await fetch(`${RELAX_MENU_TEST_SITE}/pilot/relax-menus/${key}.png?v=${relaxMenuVersion}`,{redirect:"error"});
       if(!asset.ok)throw new Error("MENU_IMAGE_HTTP_"+asset.status);
       const bytes=new Uint8Array(await asset.arrayBuffer());
       if(bytes.length>1_000_000||bytes.length<24||bytes.slice(0,8).join(",")!=="137,80,78,71,13,10,26,10")throw new Error("Invalid menu PNG");
       const view=new DataView(bytes.buffer);if(view.getUint32(16)!==2500||view.getUint32(20)!==1686)throw new Error("Wrong menu image dimensions");
-      const created=await relaxMenuApi("/v2/bot/richmenu","POST",relaxMenuDefinition(question,step));
+      const created=await relaxMenuApi("/v2/bot/richmenu","POST",definition);
       const id=created?.richMenuId;if(typeof id!=="string")throw new Error("Missing test menu ID");
       try{await relaxMenuApi(`/v2/bot/richmenu/${id}/content`,"POST",bytes,true);}
       catch(e){await relaxMenuApi(`/v2/bot/richmenu/${id}`,"DELETE").catch(()=>console.error("Test menu cleanup needs retry"));throw e;}
-      ids[question.id]=id;
+      ids[key]=id;
     }
     return ids;
   })().catch(e=>{relaxStaticMenus=null;throw e;});
   return relaxStaticMenus;
+}
+// The test bot's account-wide home menu (user-approved for @607idvzb only), checked once per instance.
+let relaxHomeChecked: Promise<void> | null = null;
+async function relaxEnsureHome() {
+  if(!relaxMenusEnabled())return;
+  if(!relaxHomeChecked)relaxHomeChecked=(async()=>{
+    const home=(await relaxMenuIds()).home;
+    const current=await relaxMenuApi("/v2/bot/user/all/richmenu");
+    if(current?.richMenuId!==home)await relaxMenuApi(`/v2/bot/user/all/richmenu/${home}`,"POST");
+  })().catch(e=>{relaxHomeChecked=null;throw e;});
+  try{await relaxHomeChecked;}catch(e){console.error("Test home menu unavailable",relaxMenuFailure(e));}
 }
 async function relaxMenusShow(sub: string, snapshot: RelaxSession): Promise<boolean> {
   if(!relaxMenusEnabled()){
@@ -128,7 +140,7 @@ async function relaxMenusShow(sub: string, snapshot: RelaxSession): Promise<bool
   if(!s.rich_menu_captured){
     // Remember the tester's own menu once so pause/finish can put it back.
     const assigned=(await relaxMenuApi(`/v2/bot/user/${sub}/richmenu`))?.richMenuId??null;
-    previous=Object.values(ids).includes(assigned)?null:assigned;
+    previous=Object.values(ids).includes(assigned)?null:assigned; // our own menus (incl. home) are never "previous"
   }
   let query=db.from("digital_relax_pilot_sessions").update({current_rich_menu_id:id,previous_rich_menu_id:previous,rich_menu_captured:true})
     .eq("user_id",s.user_id).eq("flow_id",s.flow_id).eq("revision",s.revision);

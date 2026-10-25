@@ -34,7 +34,9 @@
   .watchrow{display:flex;gap:8px}.watchrow input{flex:1;min-width:0;font-size:16px;padding:8px;border:1px solid #d9d2c5;border-radius:8px}.watchrow button{width:auto;padding:8px 16px}
 .cmp{font-size:17px;margin-top:8px}
   /* 14 天放鬆練習：只留「量、慢呼吸、再量」，收起保健品用的電量、手錶對照與匯出 */
-  body.relaxpilot #bat,body.relaxpilot #watchTip,body.relaxpilot #csv,body.relaxpilot #dock{display:none!important}
+  body.relaxpilot #bat,body.relaxpilot #watchTip,body.relaxpilot #csv,body.relaxpilot #relaxPilotBack{display:none!important}
+  /* 底部「回主頁」一直都在，量到一半或量完都能直接回去 */
+  body.relaxpilot #dock{display:block!important}body.relaxpilot{padding-bottom:110px}
   .bat{margin-top:14px;text-align:left}
   .batbar{display:flex;gap:6px;margin:6px 0}
   .batbar i{flex:1;height:14px;border-radius:7px;background:rgba(127,127,127,.25)}
@@ -110,7 +112,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>if (/[?&]debug=1/.test(location.search)) document.getElementById('envcard').hidden = false;</script>
 <script type="module">
-// rPPG 訊號處理：POS 演算法（Wang et al., 2017, IEEE TBME）依論文公式自行實作，無第三方程式碼。
+// 訊號處理：依公開論文公式自行實作，無第三方程式碼。
 const FS = 30; // 重新取樣頻率（Hz）
 
 // 把不等間隔的取樣（t 單位：秒）線性內插成固定 FS
@@ -246,6 +248,23 @@ function roiMean(lm, idx) {
   return { m: [r / n, g / n, b / n], box: [x, y, w, h] };
 }
 
+// 量測中的畫面：柔和的臉型輪廓，加上額頭與雙頰隨時間起伏的光暈，讓人知道正在量，但不顯示取樣方式
+const FACE_OVAL = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
+function drawFaceGuide(lm, parts, now) {
+  const W = ov.width, H = ov.height;
+  octx.beginPath();
+  FACE_OVAL.forEach((i, k) => { const x = lm[i].x * W, y = lm[i].y * H; k ? octx.lineTo(x, y) : octx.moveTo(x, y); });
+  octx.closePath();
+  octx.strokeStyle = 'rgba(255,255,255,0.55)'; octx.lineWidth = 3; octx.setLineDash([2, 10]); octx.lineCap = 'round'; octx.stroke(); octx.setLineDash([]);
+  const pulse = 0.22 + 0.12 * Math.sin(now / 420);
+  for (const p of parts) {
+    const [x, y, w, h] = p.box, cx = x + w / 2, cy = y + h / 2, r = Math.max(w, h) * 0.9;
+    const g = octx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, 'rgba(255,222,170,' + pulse.toFixed(3) + ')'); g.addColorStop(1, 'rgba(255,222,170,0)');
+    octx.fillStyle = g; octx.beginPath(); octx.arc(cx, cy, r, 0, Math.PI * 2); octx.fill();
+  }
+}
+
 // 疊在鏡頭畫面上方的大字提示；title 為空就隱藏
 function overlay(title, big) {
   const o = $('ovtxt');
@@ -341,8 +360,7 @@ async function run() {
             const rgb = [0, 1, 2].map(c => parts.reduce((s, p) => s + p.m[c], 0) / parts.length);
             rows.push({ t: (now - t0) / 1000, rgb });
             lq = liveQuality(lm, rgb);
-            octx.fillStyle = 'rgba(92,199,154,0.30)'; octx.strokeStyle = 'rgba(255,255,255,0.45)'; octx.lineWidth = 2;
-            parts.forEach(p => { octx.beginPath(); octx.roundRect ? octx.roundRect(...p.box, 14) : octx.rect(...p.box); octx.fill(); octx.stroke(); });
+            drawFaceGuide(lm, parts, now);
           }
           noFace = 0;
         } else { noFace++; if (noFace > 5) { $('qf').textContent = '找不到臉'; $('qf').className = 'bad'; } }
@@ -412,7 +430,7 @@ $('csv').onclick = () => {
   const body = rows.map(r => r.t.toFixed(4) + ',' + r.rgb.map(x => x.toFixed(3)).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([head + body], { type: 'text/csv' }));
-  a.download = 'rppg_' + new Date().toISOString().replace(/[:.]/g, '-') + '.csv'; a.click();
+  a.download = 'scan_' + new Date().toISOString().replace(/[:.]/g, '-') + '.csv'; a.click();
 };
 
 // ===== LINE 登入與雲端儲存（只送「時間、心率、品質」等數字，不送影像）=====
@@ -433,7 +451,10 @@ if (relaxPilotFlow) {
   document.querySelector('#relaxPilotReturn strong').textContent = '量完會把結果帶回聊天室';
   $('relaxPilotStatus').textContent = '不想量或量不到也沒關係，可以直接回聊天室看計畫。';
   $('relaxPilotBack').textContent = '回聊天室';
-  $('relaxPilotBack').onclick = async () => {
+  document.querySelector('#dock .mut').textContent = '量好的結果會自動帶回聊天室';
+  $('ctaBtn').textContent = '回到 Deerly 主頁';
+  $('chatBtn').hidden = true;
+  $('ctaBtn').onclick = $('relaxPilotBack').onclick = async () => {
     // Leaving after only the first reading still brings that reading back to the chat.
     if (relaxSaved !== null) await relaxPilotNotify(relaxSaved);
     try {
@@ -523,7 +544,7 @@ onScanDone = async () => {
 };
 $('chatBtn').onclick = () => { try { liff.closeWindow(); } catch { /* 非 LINE 內 */ } };
 
-$('ctaBtn').onclick = () => { location.href = './quiz/'; };
+if (!relaxPilotFlow) $('ctaBtn').onclick = () => { location.href = './quiz/'; };
 $('agree').onchange = () => { $('consentBtn').disabled = !$('agree').checked; };
 $('consentBtn').onclick = async () => {
   $('consentBtn').disabled = true;
@@ -543,11 +564,11 @@ $('del').onclick = async () => {
     if (!liff.isLoggedIn()) { liffOut('未登入（非 LINE 內開啟時，量測結果只顯示、不儲存）'); return; }
     cloud.on = true;
     // 在聊天室裡開啟時，量完直接回聊天室繼續（官方帳號會接著引導問卷），不再跳網頁問卷
-    if (liff.isInClient()) {
+    if (liff.isInClient() && !relaxPilotFlow) {
       $('ctaBtn').textContent = '回聊天室，繼續下一步 ›';
       $('ctaBtn').onclick = () => { try { liff.closeWindow(); } catch { /* 非 LINE 內 */ } };
       $('chatBtn').remove();
-      document.querySelector('#dock .mut').textContent = relaxPilotFlow ? '請依上方保存狀態回聊天室繼續，也可以略過' : '結果已傳到聊天室，回去就能繼續';
+      document.querySelector('#dock .mut').textContent = '結果已傳到聊天室，回去就能繼續';
     }
     liffOut('已登入 LINE，量測結果可儲存');
     await refresh();

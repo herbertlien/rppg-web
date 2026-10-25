@@ -27,7 +27,7 @@ test('all 5 menu images have valid dimensions, bounded nonoverlapping touch area
   assert.equal(relaxMenuLayout(q).length,q.options.length);
  }
 });
-test('five shared menus are created once, then only linked; duplicate clicks do not skip; no global default change',async()=>{
+test('five shared question menus plus home are created once, then only linked; only home becomes the default',async()=>{
  const f=fixture({menu:true});await f.begin();
  for(let step=0;step<5;step++){
   assert.equal(f.session().step,step);const menu=f.menuState.menus.get(f.menuState.assigned);
@@ -36,9 +36,11 @@ test('five shared menus are created once, then only linked; duplicate clicks do 
   if(step<4)assert.deepEqual(f.menuRequests.slice(before).map(r=>r.method),['POST'],'later questions only link');
   await f.post(action);
  }
- assert.equal(f.session().status,'scan');assert.equal(f.menuState.assigned,null);assert.equal(ours(f).length,5);
- assert.equal(f.menuRequests.filter(r=>r.path==='/v2/bot/richmenu'&&r.method==='POST').length,5);
- assert.ok(!f.menuRequests.some(r=>r.path.includes('/all/')||r.method==='DELETE'&&!r.path.includes('/user/')));
+ assert.equal(f.session().status,'scan');assert.equal(f.menuState.assigned,null);assert.equal(ours(f).length,6);
+ assert.equal(f.menuState.menus.get(f.menuState.defaultMenu).name,'relax-static-v4-home');
+ assert.equal(f.menuRequests.filter(r=>r.path==='/v2/bot/richmenu'&&r.method==='POST').length,6);
+ assert.equal(f.menuRequests.filter(r=>r.path.includes('/all/')&&r.method==='POST').length,1);
+ assert.ok(!f.menuRequests.some(r=>r.method==='DELETE'&&!r.path.includes('/user/')));
  const again=fixture({menu:true,sharedTables:f.tables});f.tables.digital_relax_pilot_sessions.length=0;
  for(const [id,m] of f.menuState.menus)again.menuState.menus.set(id,m);
  await again.begin();assert.equal(again.menuRequests.filter(r=>r.path==='/v2/bot/richmenu'&&r.method==='POST').length,0,'new instance reuses menus by name');
@@ -46,9 +48,9 @@ test('five shared menus are created once, then only linked; duplicate clicks do 
 test('back/pause/resume preserves progress and restores original per-user menu; deletion restores it too',async()=>{
  const f=fixture({menu:true,previousMenu:'original-menu'});await f.begin();await f.click('rlx|answer|0|evening');
  assert.notEqual(f.menuState.assigned,'original-menu');await f.click('rlx|back');assert.equal(f.session().step,0);
- await f.click('rlx|pause');assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.menuState.menus.size,6);
+ await f.click('rlx|pause');assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.menuState.menus.size,7);
  await f.click('rlx|resume');assert.notEqual(f.menuState.assigned,'original-menu');await f.text('刪除放鬆測試資料');
- assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.session(),undefined);assert.equal(f.menuState.menus.size,6);
+ assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.session(),undefined);assert.equal(f.menuState.menus.size,7);
 });
 test('repeating resume creates nothing; a tap on an earlier question menu cannot change answers',async()=>{
  const f=fixture({menu:true});await f.begin();const first=f.menuState.menus.get(f.menuState.assigned).areas[1].action.data;
@@ -93,7 +95,7 @@ test('configured isolated artifact executes the same guarded Rich Menu flow as s
   const raw=readFileSync(join(dir,'out/supabase/functions/linebot/index.ts'),'utf8');
   const script=stripTypeScriptTypes(raw.replace(/^import .*createClient.*;$/m,''));
   const f=fixture({menu:true,previousMenu:'original-menu',script});await f.complete();
-  assert.equal(f.session().status,'scan');assert.equal(f.menuState.assigned,'original-menu');assert.equal(ours(f).length,5);
+  assert.equal(f.session().status,'scan');assert.equal(f.menuState.assigned,'original-menu');assert.equal(ours(f).length,6);
   const wrong=fixture({menu:true,wrongBot:true,script});await wrong.begin();assert.equal(wrong.menuRequests.length,0);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
@@ -147,4 +149,14 @@ test('on the test bot any other text stays in the relaxation flow instead of the
  const outside=fixture({menu:true,allow:''});outside.tables.quiz_sessions.push({user_id:'fake-user',cur:'sex',answers:{age:'30_34'},multi:[],history:['age']});
  await outside.text('你好');assert.match(JSON.stringify(outside.replies.at(-1)),/性別/);
  const legacy=fixture({productionScope:true});await legacy.text('你好');assert.match(JSON.stringify(legacy.replies.at(-1)),/歡迎來到 Deerly/);
+});
+
+test('home tiles: plan, before/after re-measure from a finished plan, and restart offer',async()=>{
+ const f=fixture({menu:true});await f.text('我的計畫');assert.equal(f.replies.at(-1)[0].type,'flex');assert.match(JSON.stringify(f.replies.at(-1)),/同意並開始/);
+ await f.complete();await f.click('rlx|scan|skip');assert.equal(f.session().status,'preview');
+ await f.text('心跳前後對比');assert.equal(f.session().status,'scan');assert.equal(f.session().scan_opt_in,true);assert.match(JSON.stringify(f.replies.at(-1)),/開始量測/);
+ f.tables.scans.push({user_id:'fake-user',bpm:80,quality:0.8,scanned_at:new Date().toISOString()});
+ await f.text('我量好了');assert.equal(f.session().status,'preview');assert.match(JSON.stringify(f.replies.at(-1)),/你的心跳/);
+ await f.text('放鬆練習');const last=f.replies.at(-1);assert.match(JSON.stringify(last),/你的 14 天放鬆計畫/);assert.match(JSON.stringify(last.at(-1).quickReply),/重新做 5 題/);
+ await f.text('我的計畫');assert.match(JSON.stringify(f.replies.at(-1)),/先試前兩天/);
 });

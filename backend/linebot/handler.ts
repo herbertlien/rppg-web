@@ -457,6 +457,14 @@ async function onText(sub: string, replyToken: string, text: string) {
     if(s){await relaxMenusRestore(sub,s);if(!s.paused)await relaxUpdate(s,{paused:true});}
     return reply(replyToken,[{type:"text",text:"已收起選單，進度幫你留著。想繼續時傳任何訊息就可以。"}]);
   });
+  // Home menu tiles on the test bot.
+  if (["心跳前後對比","我的計畫"].includes(t) && relaxAllowed(sub)) return relaxGuard(sub,replyToken,async()=>{
+    const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
+    if(!s)return relaxStart(sub,replyToken);
+    if(s.status==="quiz"||s.paused)return relaxAsk(sub,replyToken,s.paused?await relaxUpdate(s,{paused:false}):s);
+    if(t==="我的計畫")return relaxAsk(sub,replyToken,s);
+    return relaxOfferScan(sub,replyToken,await relaxUpdate(s,{status:"scan",scan_opt_in:true,scan_started_at:new Date().toISOString()}));
+  });
   if (["放鬆測試","放鬆練習","14天放鬆","14 天放鬆","重新開始放鬆測試"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxStart(sub,replyToken));
   if (["刪除我的資料","刪除放鬆測試資料"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxDelete(sub,replyToken));
   if (/^放鬆量測完成 /.test(t)) return relaxGuard(sub,replyToken,async()=>{
@@ -542,6 +550,8 @@ async function relaxStart(sub: string, token: string) {
   if (!relaxAllowed(sub)) return reply(token, [{ type: "text", text: "這個放鬆服務目前只開放受邀測試；原本的 Deerly 服務不受影響。" }]);
   const uid = await findUser(sub, false);
   const existing = uid ? await relaxSession(uid) : null;
+  await relaxEnsureHome();
+  if (existing?.status === "preview" && !existing.paused) return relaxPreview(sub,token,existing,undefined,true);
   if (existing) {
     const data = relaxData(existing);
     return reply(token, [{ type:"text", text:"你上次的放鬆練習還沒做完。要接著做，還是重新開始？",
@@ -551,6 +561,7 @@ async function relaxStart(sub: string, token: string) {
 }
 async function relaxAsk(sub: string, token: string, s: RelaxSession) {
   const data = relaxData(s);
+  await relaxEnsureHome();
   if (s.paused) { await relaxMenusTryRestore(sub,s); return reply(token,[{type:"text",text:"先暫停囉，進度幫你留著。想繼續時傳任何訊息就可以。",quickReply:quick([{label:"繼續",data:data("rlx|resume")},{label:"刪除我的資料",data:data("rlx|delete")}])}]); }
   if (s.status === "preview") return relaxPreview(sub,token, s);
   if (s.status === "scan") return relaxOfferScan(sub,token, s);
@@ -572,10 +583,12 @@ async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
   message.quickReply = quick([{label:"我量好了",data:relaxData(s)("rlx|done")},{label:"先暫停",data:relaxData(s)("rlx|pause")}]);
   return reply(token,[message]);
 }
-async function relaxPreview(sub: string, token: string, s: RelaxSession, heart?: {before:number;after?:number}) {
+async function relaxPreview(sub: string, token: string, s: RelaxSession, heart?: {before:number;after?:number}, offerRestart = false) {
   await relaxMenusTryRestore(sub,s);
   const preview = createPreview(catalog.relax,s.answers);
-  return reply(token,[...(heart?[relaxHeartCard(heart.before,heart.after)]:[]),relaxResultCard(preview),relaxInterestCard(preview,relaxData(s))]);
+  const interest: Record<string, unknown> = relaxInterestCard(preview,relaxData(s));
+  if (offerRestart) interest.quickReply = quick([{label:"重新做 5 題",data:relaxData(s)("rlx|restart")}]);
+  return reply(token,[...(heart?[relaxHeartCard(heart.before,heart.after)]:[]),relaxResultCard(preview),interest]);
 }
 async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
   if (s.status !== "scan" || s.paused || !s.scan_opt_in || !s.scan_started_at) return relaxAsk(sub,token,s);

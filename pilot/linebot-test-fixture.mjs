@@ -10,7 +10,7 @@ const source = stripTypeScriptTypes(readFileSync(new URL('../backend/linebot/ind
 export function fixture({enabled=true,allow='invited',admin='',failTable=null,sharedTables=null,menu=false,productionScope=false,previousMenu=null,wrongBot=false,script=null}={}) {
   const tables=sharedTables ?? {users:[{id:'fake-user',line_sub:'invited'}],digital_relax_pilot_sessions:[],quiz_sessions:[],consents:[],packs:[],scans:[],rich_menus:[],intakes:[]};
   const calls=[], writes=[], replies=[],menuRequests=[];
-  const menuState={assigned:previousMenu,menus:new Map(previousMenu?[[previousMenu,{name:'original-supplement-menu'}]]:[]),failure:null,next:0};
+  const menuState={defaultMenu:null,assigned:previousMenu,menus:new Map(previousMenu?[[previousMenu,{name:'original-supplement-menu'}]]:[]),failure:null,next:0};
   let serve;
   class Query {
     constructor(table){this.table=table;this.filters=[];this.mode='select';this.limitN=Infinity;}
@@ -69,6 +69,11 @@ export function fixture({enabled=true,allow='invited',admin='',failTable=null,sh
           const id='richmenu-synthetic-'+(++menuState.next);menuState.menus.set(id,JSON.parse(options.body));return new Response(JSON.stringify({richMenuId:id}));
         }
         if(path==='/v2/bot/richmenu/list'&&method==='GET')return new Response(JSON.stringify({richmenus:[...menuState.menus].map(([richMenuId,m])=>({richMenuId,...m}))}));
+        const all=path.match(/^\/v2\/bot\/user\/all\/richmenu(?:\/([^/]+))?$/);
+        if(all){
+          if(method==='GET')return menuState.defaultMenu?new Response(JSON.stringify({richMenuId:menuState.defaultMenu})):new Response('{}',{status:404});
+          if(method==='POST'){assert.match(menuState.menus.get(all[1])?.name??'',/-home$/,'only the home menu may become the default');menuState.defaultMenu=all[1];return new Response('{}');}
+        }
         const user=path.match(/^\/v2\/bot\/user\/invited\/richmenu(?:\/([^/]+))?$/);
         if(user){
           if(method==='GET')return menuState.assigned?new Response(JSON.stringify({richMenuId:menuState.assigned})):new Response('{}',{status:404});

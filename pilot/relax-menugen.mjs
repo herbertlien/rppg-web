@@ -3,7 +3,7 @@ import {readFileSync,writeFileSync,mkdirSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {catalog} from './products.js';
-import {relaxMenuLayout,relaxMenuVersion} from './relax-rich-menu.js';
+import {relaxMenuLayout,relaxMenuVersion,relaxHomeTiles} from './relax-rich-menu.js';
 const out=new URL('./relax-menus/',import.meta.url);mkdirSync(out,{recursive:true});
 const temp=mkdtempSync(join(tmpdir(),'relax-menu-render-'));
 const esc=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
@@ -30,6 +30,22 @@ try{
   if(overflow.length)throw new Error('Text overflow in '+q.id+': '+JSON.stringify(overflow));
   await page.screenshot({path:new URL(q.id+'.png',out).pathname});
   const png=readFileSync(new URL(q.id+'.png',out));if(png.length>1_000_000)throw new Error('Image exceeds LINE 1MB: '+q.id);
+ }
+ {
+  const html=`<!doctype html><meta charset="utf-8"><style>
+  *{box-sizing:border-box}body{margin:0;width:2500px;height:1686px;position:relative;background:#F6F1EA;color:#1E2A24;font-family:"Noto Sans CJK TC","Noto Sans TC",sans-serif}
+  .brand{position:absolute;top:70px;left:110px;font-size:110px;font-weight:700;letter-spacing:8px;color:#1F5C42}.tag{position:absolute;top:110px;right:110px;font-size:72px;color:#52655B}
+  .tile{position:absolute;border-radius:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:24px;padding:30px}
+  .main{background:#1F5C42;color:#fff}.side{background:#fff;border:5px solid #2F7D5B;color:#1F5C42;box-shadow:0 10px 0 #E4EDE7}
+  .t{font-size:170px;font-weight:800;line-height:1.15}.side .t{font-size:140px}.s{font-size:78px;opacity:.85;line-height:1.3}
+  </style><div class="brand">Deerly</div><div class="tag">14 天放鬆練習</div>
+  ${relaxHomeTiles.map((t,i)=>`<div class="tile ${i?'side':'main'}" style="left:${t.bounds.x}px;top:${t.bounds.y}px;width:${t.bounds.width}px;height:${t.bounds.height}px"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.sub)}</div></div>`).join('')}`;
+  await page.setContent(html,{waitUntil:'domcontentloaded'});
+  await page.evaluate(()=>document.fonts.ready);
+  const overflow=await page.locator('.tile').evaluateAll(nodes=>nodes.filter(n=>n.scrollWidth>n.clientWidth||n.scrollHeight>n.clientHeight).map(n=>n.textContent));
+  if(overflow.length)throw new Error('Text overflow in home: '+JSON.stringify(overflow));
+  await page.screenshot({path:new URL('home.png',out).pathname});
+  if(readFileSync(new URL('home.png',out)).length>1_000_000)throw new Error('Image exceeds LINE 1MB: home');
  }
  writeFileSync(new URL('manifest.json',out),JSON.stringify({version:relaxMenuVersion,size:{width:2500,height:1686},questions:catalog.relax.questions.map(q=>({id:q.id,areas:relaxMenuLayout(q)}))},null,2)+'\n');
  writeFileSync(new URL('preview.html',out),`<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deerly 測試問卷選單預覽</title><style>body{background:#F6F1EA;color:#1E2A24;font:17px/1.6 sans-serif;margin:24px}main{max-width:800px;margin:auto}img{display:block;width:100%;max-width:390px;border-radius:12px;border:1px solid #E3DACB}section{margin:32px 0}p{max-width:600px}</style><main><h1>Deerly 放鬆問卷・大字選單</h1><p>這是設計預覽，非 LINE App 截圖。選單原圖為 2500×1686；此頁以最多 390px 寬呈現。實際需在 LINE 點聊天室底部選單列展開。</p>${catalog.relax.questions.map((q,i)=>`<section><h2>${i+1}/5 ${esc(q.text)}</h2><img src="${q.id}.png" alt="${esc(q.text)}：${relaxMenuLayout(q).map(o=>esc(o.label)).join('、')}" loading="lazy"></section>`).join('')}</main></html>`);
