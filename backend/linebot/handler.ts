@@ -473,6 +473,11 @@ async function onText(sub: string, replyToken: string, text: string) {
     });
     if (handled !== false) return;
   }
+  // The isolated test bot only runs the relaxation quiz: any other text re-shows where the tester is.
+  if (relaxMenuTestScope() && relaxAllowed(sub)) return relaxGuard(sub,replyToken,async()=>{
+    const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
+    return s?relaxAsk(sub,replyToken,s):relaxStart(sub,replyToken);
+  });
   if (/^(開始問卷|開始|問卷)$/.test(text.trim())) return startFlow(sub, replyToken);
   if (/^我量好了/.test(text.trim())) return onScanDone(sub, replyToken);
   if (/^(我的報告|報告|看報告)$/.test(text.trim())) return showReport(sub, replyToken);
@@ -611,7 +616,11 @@ async function relaxPostback(sub: string, token: string, raw: string) {
   }
   const uid = await findUser(sub,false), s = uid ? await relaxSession(uid) : null;
   if (!s) return relaxStart(sub,token);
-  if (flow !== s.flow_id || revision !== String(s.revision)) return relaxAsk(sub,token,s);
+  // Shared menu taps carry the question number instead of flow/revision; only the current question counts.
+  const current = flow === "menu"
+    ? s.status === "quiz" && ["answer","back","pause"].includes(kind) && detail === String(s.step)
+    : flow === s.flow_id && revision === String(s.revision);
+  if (!current) return relaxAsk(sub,token,s);
   if (kind === "delete") return relaxDelete(sub,token,s);
   if (kind === "restart") {
     // Explicit, scoped reset, followed by a fresh consent screen; duplicate old buttons cannot reset again.

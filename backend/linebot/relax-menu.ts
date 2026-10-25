@@ -6,7 +6,7 @@ const relaxMenuTestScope = () => Deno.env.get("RELAX_ISOLATED_TEST") === "1"
   && (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "") === RELAX_MENU_TEST_PROJECT
   && LIFF_URL === "https://liff.line.me/2012194363-LYirSkEL";
 const relaxMenusEnabled = () => relaxMenuTestScope() && Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED") === "1";
-const RELAX_MENU_BUILD = "relax-menu-focused-v3";
+const RELAX_MENU_BUILD = "relax-menu-static-v4";
 function relaxMenuFailure(e: unknown): string {
   const message=e instanceof Error?e.message:"";
   if(/^MENU_[A-Z_0-9]+$/.test(message))return message;
@@ -29,6 +29,11 @@ async function relaxMenuDiagnose(sub: string, token: string) {
     const row=await db.from("digital_relax_pilot_sessions").select("current_rich_menu_id,previous_rich_menu_id,rich_menu_captured").eq("user_id",uid).maybeSingle();
     lines.push("選單資料欄位："+(row.error?relaxMenuFailure(row.error):"通過"));
   }else lines.push("問卷紀錄：尚未同意開始");
+  try{
+    const list=await relaxMenuApi("/v2/bot/richmenu/list");
+    const n=(list?.richmenus??[]).filter((m: {name?: string})=>m?.name?.startsWith(relaxMenuSet+"-")).length;
+    lines.push("五題共用選單："+(n?`已建立 ${n}/5`:"尚未建立（第一次作答時自動建立）"));
+  }catch(e){lines.push("五題共用選單："+relaxMenuFailure(e));}
   try{
     const res=await fetch(`${RELAX_MENU_TEST_SITE}/pilot/relax-menus/goal.png?v=${relaxMenuVersion}`,{redirect:"error"});
     const bytes=new Uint8Array(await res.arrayBuffer());
@@ -57,7 +62,7 @@ async function relaxMenuApi(path: string, method="GET", body?: unknown, image=fa
     body: body===undefined?undefined:image?body as Uint8Array:JSON.stringify(body)});
   if (res.status===404 && method==="GET") return null;
   if (!res.ok) {
-    const stage=image?"UPLOAD":path==="/v2/bot/richmenu"?"CREATE":path.includes("/user/")?(method==="GET"?"LOOKUP":"LINK"):"CLEANUP";
+    const stage=image?"UPLOAD":path==="/v2/bot/richmenu"?"CREATE":path==="/v2/bot/richmenu/list"?"LIST":path.includes("/user/")?(method==="GET"?"LOOKUP":"LINK"):"CLEANUP";
     throw new Error(`MENU_${stage}_HTTP_${res.status}`);
   }
   const text=await res.text();return text?JSON.parse(text):{};
@@ -66,6 +71,7 @@ async function relaxMenuState(s: RelaxSession): Promise<RelaxSession | null> {
   const r=await db.from("digital_relax_pilot_sessions").select("*").eq("user_id",s.user_id).eq("flow_id",s.flow_id).maybeSingle();
   if(r.error)throw r.error;return r.data;
 }
+// Menus made per user by the v1–v3 builds; the shared v4 menus are never deleted here.
 async function relaxDeleteOwnedMenu(id: string | null | undefined, flow: string) {
   if(!id)return;
   const menu=await relaxMenuApi(`/v2/bot/richmenu/${id}`);
@@ -86,6 +92,30 @@ async function relaxMenusRestore(sub: string, snapshot: RelaxSession) {
   if(clear.error)throw clear.error;
   if(clear.data)await relaxDeleteOwnedMenu(s.current_rich_menu_id,s.flow_id);
 }
+// The five shared menus are found by name on the test bot, created once if missing, then cached per instance.
+let relaxStaticMenus: Promise<Record<string,string>> | null = null;
+function relaxMenuIds(): Promise<Record<string,string>> {
+  if(!relaxStaticMenus)relaxStaticMenus=(async()=>{
+    const list=await relaxMenuApi("/v2/bot/richmenu/list");
+    const ids: Record<string,string>={};
+    for(const m of list?.richmenus??[])if(typeof m?.name==="string"&&m.name.startsWith(relaxMenuSet+"-"))ids[m.name.slice(relaxMenuSet.length+1)]=m.richMenuId;
+    for(const [step,question] of catalog.relax.questions.entries()){
+      if(ids[question.id])continue;
+      const asset=await fetch(`${RELAX_MENU_TEST_SITE}/pilot/relax-menus/${question.id}.png?v=${relaxMenuVersion}`,{redirect:"error"});
+      if(!asset.ok)throw new Error("MENU_IMAGE_HTTP_"+asset.status);
+      const bytes=new Uint8Array(await asset.arrayBuffer());
+      if(bytes.length>1_000_000||bytes.length<24||bytes.slice(0,8).join(",")!=="137,80,78,71,13,10,26,10")throw new Error("Invalid menu PNG");
+      const view=new DataView(bytes.buffer);if(view.getUint32(16)!==2500||view.getUint32(20)!==1686)throw new Error("Wrong menu image dimensions");
+      const created=await relaxMenuApi("/v2/bot/richmenu","POST",relaxMenuDefinition(question,step));
+      const id=created?.richMenuId;if(typeof id!=="string")throw new Error("Missing test menu ID");
+      try{await relaxMenuApi(`/v2/bot/richmenu/${id}/content`,"POST",bytes,true);}
+      catch(e){await relaxMenuApi(`/v2/bot/richmenu/${id}`,"DELETE").catch(()=>console.error("Test menu cleanup needs retry"));throw e;}
+      ids[question.id]=id;
+    }
+    return ids;
+  })().catch(e=>{relaxStaticMenus=null;throw e;});
+  return relaxStaticMenus;
+}
 async function relaxMenusShow(sub: string, snapshot: RelaxSession): Promise<boolean> {
   if(!relaxMenusEnabled()){
     if(snapshot.current_rich_menu_id)await relaxMenusRestore(sub,snapshot);
@@ -93,43 +123,22 @@ async function relaxMenusShow(sub: string, snapshot: RelaxSession): Promise<bool
   }
   await relaxMenuIdentity();
   const s=await relaxMenuState(snapshot);if(!s||s.revision!==snapshot.revision||s.paused||s.status!=="quiz")return false;
-  const question=catalog.relax.questions[s.step], definition=relaxMenuDefinition(question,s);
-  const assigned=await relaxMenuApi(`/v2/bot/user/${sub}/richmenu`);
-  if(s.current_rich_menu_id && assigned?.richMenuId===s.current_rich_menu_id){
-    const existing=await relaxMenuApi(`/v2/bot/richmenu/${s.current_rich_menu_id}`);
-    if(existing?.name===definition.name)return true;
+  const ids=await relaxMenuIds(), id=ids[catalog.relax.questions[s.step].id];
+  let previous=s.previous_rich_menu_id??null;
+  if(!s.rich_menu_captured){
+    // Remember the tester's own menu once so pause/finish can put it back.
+    const assigned=(await relaxMenuApi(`/v2/bot/user/${sub}/richmenu`))?.richMenuId??null;
+    previous=Object.values(ids).includes(assigned)?null:assigned;
   }
-  const asset=await fetch(`${RELAX_MENU_TEST_SITE}/pilot/relax-menus/${question.id}.png?v=${relaxMenuVersion}`,{redirect:"error"});
-  if(!asset.ok)throw new Error("MENU_IMAGE_HTTP_"+asset.status);
-  const bytes=new Uint8Array(await asset.arrayBuffer());
-  if(bytes.length>1_000_000||bytes.length<24||bytes.slice(0,8).join(",")!=="137,80,78,71,13,10,26,10")throw new Error("Invalid menu PNG");
-  const view=new DataView(bytes.buffer);if(view.getUint32(16)!==2500||view.getUint32(20)!==1686)throw new Error("Wrong menu image dimensions");
-  const created=await relaxMenuApi("/v2/bot/richmenu","POST",definition);
-  const id=created?.richMenuId;if(typeof id!=="string")throw new Error("Missing test menu ID");
-  let linked=false, saved=false;
-  try{
-    await relaxMenuApi(`/v2/bot/richmenu/${id}/content`,"POST",bytes,true);
-    let query=db.from("digital_relax_pilot_sessions").update({current_rich_menu_id:id,
-      previous_rich_menu_id:s.rich_menu_captured?s.previous_rich_menu_id:(assigned?.richMenuId??null),rich_menu_captured:true})
-      .eq("user_id",s.user_id).eq("flow_id",s.flow_id).eq("revision",s.revision);
-    query=s.current_rich_menu_id?query.eq("current_rich_menu_id",s.current_rich_menu_id):query.is("current_rich_menu_id",null);
-    const save=await query.select("*").maybeSingle();if(save.error)throw save.error;if(!save.data)return false;saved=true;
-    const current=await relaxMenuState(s);if(!current||current.revision!==s.revision)throw new Error("Menu progress changed");
-    await relaxMenuApi(`/v2/bot/user/${sub}/richmenu/${id}`,"POST");linked=true;
-    // Only the previously generated menu owned by this run may be deleted.
+  let query=db.from("digital_relax_pilot_sessions").update({current_rich_menu_id:id,previous_rich_menu_id:previous,rich_menu_captured:true})
+    .eq("user_id",s.user_id).eq("flow_id",s.flow_id).eq("revision",s.revision);
+  query=s.current_rich_menu_id?query.eq("current_rich_menu_id",s.current_rich_menu_id):query.is("current_rich_menu_id",null);
+  const save=await query.select("*").maybeSingle();if(save.error)throw save.error;if(!save.data)return false;
+  await relaxMenuApi(`/v2/bot/user/${sub}/richmenu/${id}`,"POST");
+  if(s.current_rich_menu_id&&!Object.values(ids).includes(s.current_rich_menu_id)){
     try{await relaxDeleteOwnedMenu(s.current_rich_menu_id,s.flow_id);}catch{console.error("Test menu cleanup needs retry");}
-    return true;
-  }finally{
-    if(!linked){
-      if(saved){
-        const revert=await db.from("digital_relax_pilot_sessions").update({current_rich_menu_id:s.current_rich_menu_id??null,
-          previous_rich_menu_id:s.previous_rich_menu_id??null,rich_menu_captured:s.rich_menu_captured??false})
-          .eq("user_id",s.user_id).eq("flow_id",s.flow_id).eq("current_rich_menu_id",id);
-        if(revert.error)console.error("Test menu rollback needs retry");
-      }
-      try{await relaxDeleteOwnedMenu(id,s.flow_id);}catch{console.error("Test menu cleanup needs retry");}
-    }
   }
+  return true;
 }
 async function relaxMenusTryRestore(sub: string, s: RelaxSession) {
   try{await relaxMenusRestore(sub,s);}catch{console.error("Test menu restore failed; retry with menu-stop command");}

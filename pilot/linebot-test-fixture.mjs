@@ -68,6 +68,7 @@ export function fixture({enabled=true,allow='invited',admin='',failTable=null,sh
         if(path==='/v2/bot/richmenu'&&method==='POST'){
           const id='richmenu-synthetic-'+(++menuState.next);menuState.menus.set(id,JSON.parse(options.body));return new Response(JSON.stringify({richMenuId:id}));
         }
+        if(path==='/v2/bot/richmenu/list'&&method==='GET')return new Response(JSON.stringify({richmenus:[...menuState.menus].map(([richMenuId,m])=>({richMenuId,...m}))}));
         const user=path.match(/^\/v2\/bot\/user\/invited\/richmenu(?:\/([^/]+))?$/);
         if(user){
           if(method==='GET')return menuState.assigned?new Response(JSON.stringify({richMenuId:menuState.assigned})):new Response('{}',{status:404});

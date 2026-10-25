@@ -8,16 +8,18 @@ import {prepare} from './isolated-test/prepare.mjs';
 import {catalog} from './products.js';
 import {relaxMenuLayout,relaxMenuDefinition,relaxMenuSize} from './relax-rich-menu.js';
 import {fixture} from './linebot-test-fixture.mjs';
-test('all 5 menu images have valid dimensions, bounded nonoverlapping touch areas and scoped postbacks',()=>{
+const ours=f=>[...f.menuState.menus.values()].filter(m=>m.name.startsWith('relax-static-v4-'));
+const onlyOriginalOrShared=f=>[...f.menuState.menus.values()].every(m=>m.name==='original-supplement-menu'||m.name.startsWith('relax-static-v4-'));
+test('all 5 menu images have valid dimensions, bounded nonoverlapping touch areas and step-tagged postbacks',()=>{
  for(const [step,q] of catalog.relax.questions.entries()){
   const image=readFileSync(new URL(`./relax-menus/${q.id}.png`,import.meta.url));
   assert.ok(image.length<1_000_000);assert.equal(image.readUInt32BE(16),2500);assert.equal(image.readUInt32BE(20),1686);
-  const menu=relaxMenuDefinition(q,{flow_id:'synthetic-flow',revision:12,step});
+  const menu=relaxMenuDefinition(q,step);assert.equal(menu.name,`relax-static-v4-${q.id}`);
   assert.deepEqual(menu.size,relaxMenuSize);assert.ok(menu.name.length<=300);assert.ok(menu.chatBarText.length<=14);
   for(const {bounds:b,action:a} of menu.areas){
    assert.ok(b.x>=0&&b.y>=0&&b.x+b.width<=2500&&b.y+b.height<=1686);
    assert.ok(b.height/2500*360>=44,'navigation targets remain touchable');
-   assert.match(a.data,/~synthetic-flow~12$/);assert.ok(a.data.length<=300);
+   assert.match(a.data,new RegExp(`^rlx\\|[a-z]+\\|${step}(\\|[a-z0-9]+)?~menu$`));assert.ok(a.data.length<=300);
   }
   for(let i=0;i<menu.areas.length;i++)for(let j=i+1;j<menu.areas.length;j++){
    const a=menu.areas[i].bounds,b=menu.areas[j].bounds;assert.ok(a.x+a.width<=b.x||b.x+b.width<=a.x||a.y+a.height<=b.y||b.y+b.height<=a.y);
@@ -25,32 +27,46 @@ test('all 5 menu images have valid dimensions, bounded nonoverlapping touch area
   assert.equal(relaxMenuLayout(q).length,q.options.length);
  }
 });
-test('five large menus advance with scoped actions; duplicate clicks do not skip; no global default change',async()=>{
+test('five shared menus are created once, then only linked; duplicate clicks do not skip; no global default change',async()=>{
  const f=fixture({menu:true});await f.begin();
  for(let step=0;step<5;step++){
   assert.equal(f.session().step,step);const menu=f.menuState.menus.get(f.menuState.assigned);
-  assert.ok(menu);const action=menu.areas[0].action.data;await f.post(action);await f.post(action);
+  assert.ok(menu);const action=menu.areas[0].action.data;
+  const before=f.menuRequests.length;await f.post(action);
+  if(step<4)assert.deepEqual(f.menuRequests.slice(before).map(r=>r.method),['POST'],'later questions only link');
+  await f.post(action);
  }
- assert.equal(f.session().status,'scan');assert.equal(f.menuState.assigned,null);assert.equal(f.menuState.menus.size,0);
- assert.ok(!f.menuRequests.some(r=>r.path.includes('/all/')));
+ assert.equal(f.session().status,'scan');assert.equal(f.menuState.assigned,null);assert.equal(ours(f).length,5);
+ assert.equal(f.menuRequests.filter(r=>r.path==='/v2/bot/richmenu'&&r.method==='POST').length,5);
+ assert.ok(!f.menuRequests.some(r=>r.path.includes('/all/')||r.method==='DELETE'&&!r.path.includes('/user/')));
+ const again=fixture({menu:true,sharedTables:f.tables});f.tables.digital_relax_pilot_sessions.length=0;
+ for(const [id,m] of f.menuState.menus)again.menuState.menus.set(id,m);
+ await again.begin();assert.equal(again.menuRequests.filter(r=>r.path==='/v2/bot/richmenu'&&r.method==='POST').length,0,'new instance reuses menus by name');
 });
 test('back/pause/resume preserves progress and restores original per-user menu; deletion restores it too',async()=>{
  const f=fixture({menu:true,previousMenu:'original-menu'});await f.begin();await f.click('rlx|answer|0|evening');
  assert.notEqual(f.menuState.assigned,'original-menu');await f.click('rlx|back');assert.equal(f.session().step,0);
- await f.click('rlx|pause');assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.menuState.menus.size,1);
+ await f.click('rlx|pause');assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.menuState.menus.size,6);
  await f.click('rlx|resume');assert.notEqual(f.menuState.assigned,'original-menu');await f.text('刪除放鬆測試資料');
- assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.session(),undefined);assert.equal(f.menuState.menus.size,1);
+ assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.session(),undefined);assert.equal(f.menuState.menus.size,6);
 });
-test('repeating resume reuses existing menu; stale old-menu action cannot alter a restarted flow',async()=>{
- const f=fixture({menu:true});await f.begin();const old=f.menuState.menus.get(f.menuState.assigned).areas[0].action.data;
+test('repeating resume creates nothing; a tap on an earlier question menu cannot change answers',async()=>{
+ const f=fixture({menu:true});await f.begin();const first=f.menuState.menus.get(f.menuState.assigned).areas[1].action.data;
  const count=f.menuState.next;await f.click('rlx|resume');assert.equal(f.menuState.next,count);
- await f.click('rlx|restart');await f.begin();await f.post(old);assert.equal(f.session().step,0);
+ await f.post(first);assert.equal(f.session().step,1);const answers=JSON.stringify(f.session().answers);
+ await f.post(f.menuState.menus.get(f.menuState.assigned).areas[0].action.data);assert.equal(f.session().step,2);
+ await f.post(first);assert.equal(f.session().step,2);assert.ok(JSON.stringify(f.session().answers).startsWith(answers.slice(0,-1)));
+ const back1=[...f.menuState.menus.values()].find(m=>m.name.endsWith('-minutes')).areas.find(a=>a.action.displayText==='上一題').action.data;
+ await f.post(back1);assert.equal(f.session().step,2,'old back button ignored');
+ await f.click('rlx|restart');await f.begin();await f.post(first.replace('|0|','|1|'));assert.equal(f.session().step,0);
 });
 test('missing images, uploads or linking failures fall back to Quick Reply without losing original menu',async()=>{
  for(const failure of ['asset','upload','link']){
   const f=fixture({menu:true,previousMenu:'original-menu'});f.menuState.failure=failure;await f.begin();
   assert.equal(f.menuState.assigned,'original-menu');assert.match(JSON.stringify(f.replies.at(-1)),/訊息下方按鈕/);
-  assert.equal(f.menuState.menus.size,1);f.menuState.failure=null;await f.click('rlx|resume');assert.notEqual(f.menuState.assigned,'original-menu');
+  assert.ok(onlyOriginalOrShared(f));assert.ok(f.menuState.menus.has('original-menu'));
+  f.menuState.failure=null;await f.click('rlx|resume');assert.notEqual(f.menuState.assigned,'original-menu');
+  await f.click('rlx|pause');assert.equal(f.menuState.assigned,'original-menu');
  }
 });
 test('production scope, wrong bot and nonallowlisted users cannot create or change menus',async()=>{
@@ -77,7 +93,7 @@ test('configured isolated artifact executes the same guarded Rich Menu flow as s
   const raw=readFileSync(join(dir,'out/supabase/functions/linebot/index.ts'),'utf8');
   const script=stripTypeScriptTypes(raw.replace(/^import .*createClient.*;$/m,''));
   const f=fixture({menu:true,previousMenu:'original-menu',script});await f.complete();
-  assert.equal(f.session().status,'scan');assert.equal(f.menuState.assigned,'original-menu');assert.equal(f.menuState.menus.size,1);
+  assert.equal(f.session().status,'scan');assert.equal(f.menuState.assigned,'original-menu');assert.equal(ours(f).length,5);
   const wrong=fixture({menu:true,wrongBot:true,script});await wrong.begin();assert.equal(wrong.menuRequests.length,0);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
@@ -120,4 +136,15 @@ test('Rich Menu is the sole answer surface on success; later questions omit repe
  }
  const fallback=fixture({menu:true});fallback.menuState.failure='asset';await fallback.begin();
  assert.ok(fallback.replies.at(-1)[0].quickReply.items.length>0);
+});
+
+test('on the test bot any other text stays in the relaxation flow instead of the supplement quiz',async()=>{
+ const f=fixture({menu:true});f.tables.quiz_sessions.push({user_id:'fake-user',cur:'sex',answers:{age:'30_34'},multi:[],history:['age']});
+ await f.text('你好');assert.equal(f.replies.at(-1)[0].type,'flex');assert.match(JSON.stringify(f.replies.at(-1)),/14 天放鬆練習/);
+ await f.begin();await f.text('開始問卷');assert.match(JSON.stringify(f.replies.at(-1)),/放鬆練習 1\/5/);
+ await f.event({type:'follow'});assert.match(JSON.stringify(f.replies.at(-1)),/放鬆練習 1\/5/);
+ assert.ok(!/性別|年齡/.test(JSON.stringify(f.replies)));
+ const outside=fixture({menu:true,allow:''});outside.tables.quiz_sessions.push({user_id:'fake-user',cur:'sex',answers:{age:'30_34'},multi:[],history:['age']});
+ await outside.text('你好');assert.match(JSON.stringify(outside.replies.at(-1)),/性別/);
+ const legacy=fixture({productionScope:true});await legacy.text('你好');assert.match(JSON.stringify(legacy.replies.at(-1)),/歡迎來到 Deerly/);
 });
