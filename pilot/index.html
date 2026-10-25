@@ -182,11 +182,13 @@ async function registerInterest() {
   const status=$('status');status.textContent='已記下此裝置的興趣點擊（僅本機）。';
   // Only a deliberate click can request LINE chat transmission.
   try{
-    if(window.liff && liff.isInClient && liff.isInClient()){
-      if(!liff.id) await liff.init({liffId:'2012160129-CwL40nTW'});
-      await liff.sendMessages([{type:'text',text:msg}]);
-      status.textContent='已向此 LINE 官方帳號送出興趣訊息（若帳號允許傳送）。不代表已下單。';
-      return;
+    if(window.liff){
+      await liff.init({liffId:'2012160129-CwL40nTW'});
+      if(liff.isInClient()){
+        await liff.sendMessages([{type:'text',text:msg}]);
+      status.textContent='已向 LINE 官方帳號送出興趣訊息。不代表已下單。';
+        return;
+      }
     }
   }catch(e) {/* fall back to clipboard */ }
   try {await navigator.clipboard.writeText(msg);status.textContent='已複製意願訊息。可自行貼到 Deerly LINE 官方帳號；目前沒有集中收集名單。';}
