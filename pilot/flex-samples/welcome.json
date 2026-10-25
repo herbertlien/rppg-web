@@ -1,0 +1,108 @@
+{
+  "type": "flex",
+  "altText": "14 天放鬆練習｜回答 5 題，約 1 分鐘，排出你的練習計畫。",
+  "contents": {
+    "type": "bubble",
+    "size": "mega",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "20px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "text",
+          "text": "DEERLY・14 天放鬆練習",
+          "wrap": true,
+          "size": "xs",
+          "color": "#1F5C42",
+          "weight": "bold"
+        },
+        {
+          "type": "text",
+          "text": "每天幾分鐘，留給自己",
+          "wrap": true,
+          "size": "xl",
+          "color": "#1E2A24",
+          "weight": "bold"
+        }
+      ]
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#FFFFFF",
+      "paddingAll": "20px",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "回答 5 題（約 1 分鐘），幫你排出 14 天、每天 3–10 分鐘的放鬆練習。",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "想的話，也可以用手機前鏡頭量一下心跳。",
+          "wrap": true,
+          "size": "md",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "按下同意後，會保存你的回答最多 30 天，隨時可以刪除。",
+          "wrap": true,
+          "size": "xs",
+          "color": "#52655B"
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "16px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "button",
+          "style": "primary",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "同意並開始",
+            "data": "rlx|start|yes",
+            "displayText": "同意並開始"
+          }
+        },
+        {
+          "type": "button",
+          "style": "link",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "資料怎麼使用",
+            "data": "rlx|privacy",
+            "displayText": "資料怎麼使用"
+          }
+        },
+        {
+          "type": "button",
+          "style": "link",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "先不要",
+            "data": "rlx|start|no",
+            "displayText": "先不要"
+          }
+        }
+      ]
+    }
+  }
+}

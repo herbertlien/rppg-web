@@ -1,0 +1,204 @@
+{
+  "version": "relax-menu-20261025-v1",
+  "size": {
+    "width": 2500,
+    "height": 1686
+  },
+  "questions": [
+    {
+      "id": "goal",
+      "areas": [
+        {
+          "value": "break",
+          "label": "工作空檔",
+          "bounds": {
+            "x": 110,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "evening",
+          "label": "下班後",
+          "bounds": {
+            "x": 1267,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "beforebed",
+          "label": "睡前",
+          "bounds": {
+            "x": 110,
+            "y": 917,
+            "width": 2280,
+            "height": 363
+          }
+        }
+      ]
+    },
+    {
+      "id": "minutes",
+      "areas": [
+        {
+          "value": "3",
+          "label": "3 分鐘",
+          "bounds": {
+            "x": 110,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "5",
+          "label": "5 分鐘",
+          "bounds": {
+            "x": 1267,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "10",
+          "label": "10 分鐘",
+          "bounds": {
+            "x": 110,
+            "y": 917,
+            "width": 2280,
+            "height": 363
+          }
+        }
+      ]
+    },
+    {
+      "id": "barrier",
+      "areas": [
+        {
+          "value": "forget",
+          "label": "常常忘記",
+          "bounds": {
+            "x": 110,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "busy",
+          "label": "總是太忙",
+          "bounds": {
+            "x": 1267,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "distract",
+          "label": "容易分心",
+          "bounds": {
+            "x": 110,
+            "y": 917,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "unsure",
+          "label": "不知怎麼開始",
+          "bounds": {
+            "x": 1267,
+            "y": 917,
+            "width": 1123,
+            "height": 363
+          }
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "areas": [
+        {
+          "value": "audio",
+          "label": "聽語音",
+          "bounds": {
+            "x": 110,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "visual",
+          "label": "看動畫",
+          "bounds": {
+            "x": 1267,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "text",
+          "label": "讀短文字",
+          "bounds": {
+            "x": 110,
+            "y": 917,
+            "width": 2280,
+            "height": 363
+          }
+        }
+      ]
+    },
+    {
+      "id": "reminder",
+      "areas": [
+        {
+          "value": "morning",
+          "label": "早上",
+          "bounds": {
+            "x": 110,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "noon",
+          "label": "午休前後",
+          "bounds": {
+            "x": 1267,
+            "y": 520,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "night",
+          "label": "晚上",
+          "bounds": {
+            "x": 110,
+            "y": 917,
+            "width": 1123,
+            "height": 363
+          }
+        },
+        {
+          "value": "none",
+          "label": "暫不提醒",
+          "bounds": {
+            "x": 1267,
+            "y": 917,
+            "width": 1123,
+            "height": 363
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,374 @@
+{
+  "type": "flex",
+  "altText": "第 7 天｜第 7 天・前後對比：練習前後各量一次心跳",
+  "contents": {
+    "type": "bubble",
+    "size": "mega",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "18px",
+      "spacing": "xs",
+      "contents": [
+        {
+          "type": "text",
+          "text": "下班切換型・第 7 天",
+          "wrap": true,
+          "size": "xs",
+          "color": "#1F5C42",
+          "weight": "bold"
+        },
+        {
+          "type": "text",
+          "text": "今天：前後對比：練習前後各量一次心跳",
+          "wrap": true,
+          "size": "lg",
+          "color": "#1E2A24",
+          "weight": "bold"
+        }
+      ]
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#FFFFFF",
+      "paddingAll": "18px",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "5 分鐘；看看一週來身體的變化，不想量也可以略過。",
+          "wrap": true,
+          "size": "sm",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "spacing": "xs",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#E4EDE7",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "1",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#E4EDE7",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "2",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#E4EDE7",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "3",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#E4EDE7",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "4",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#E4EDE7",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "5",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#E4EDE7",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "6",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#1F5C42",
+              "borderWidth": "2px",
+              "borderColor": "#2F7D5B",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "7",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#FFFFFF",
+                  "weight": "bold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "spacing": "xs",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#F6F1EA",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "8",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#F6F1EA",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "9",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#F6F1EA",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "10",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#F6F1EA",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "11",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#F6F1EA",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "12",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#F6F1EA",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "13",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "regular"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "cornerRadius": "6px",
+              "paddingAll": "4px",
+              "backgroundColor": "#F6F1EA",
+              "borderWidth": "2px",
+              "borderColor": "#2F7D5B",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "14",
+                  "size": "xs",
+                  "align": "center",
+                  "wrap": true,
+                  "color": "#1E2A24",
+                  "weight": "bold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "今天是前後對比日：點下方主選單的「心跳前後對比」。",
+          "wrap": true,
+          "size": "sm",
+          "color": "#1F5C42",
+          "weight": "bold"
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "12px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "button",
+          "style": "link",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "再看一次報告",
+            "data": "rlx|report~00000000-0000-4000-8000-000000000000~0",
+            "displayText": "再看一次報告"
+          }
+        },
+        {
+          "type": "button",
+          "style": "link",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "刪除我的資料",
+            "data": "rlx|delete~00000000-0000-4000-8000-000000000000~0",
+            "displayText": "刪除我的資料"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -146,6 +146,10 @@ async function askQuestion(sub: string, replyToken: string, s: Session, notice?:
 const CONSENT_TEXT = "開始前請先看一下：\n接下來會問你年齡、是否懷孕或用藥、過敏、目前吃的保健食品，以及作息與飲食習慣，用來整理適合你的每日組合。\n・回答只有 Deerly 負責審核的人看得到，不會提供給第三方。\n・如果依回答我們不適合提供服務，這次的回答不會被保存。\n・如果你也用過心率量測，量測的數字（沒有影像）會一起給審核者參考。\n・配方由固定規則整理，再由人工確認後才通知你；這不是醫療建議。\n・你隨時可以刪除所有資料。\n（草稿，正式對外前會請專業人士審閱）";
 
 async function startFlow(sub: string, replyToken: string, force = false) {
+  if(relaxMenuTestScope()){
+    const priorUid=await findUser(sub,false),prior=priorUid?await relaxSession(priorUid):null;
+    if(prior)await relaxMenusRestore(sub,prior);
+  }
   const uid = await findUser(sub, true);
   if (!uid) return;
   if (!(await hasConsent(uid))) {
@@ -368,6 +372,7 @@ async function onScanDone(sub: string, replyToken: string) {
 }
 
 async function onPostback(sub: string, replyToken: string, data: string) {
+  if (data.startsWith('rlx|')) return relaxGuard(sub, replyToken, () => relaxPostback(sub, replyToken, data));
   const [kind, qid, value] = data.split("|");
   if (kind === "home") return qid === "pack" ? showPack(sub, replyToken) : startFlow(sub, replyToken);
   if (kind === "restart") return startFlow(sub, replyToken, true);
@@ -439,6 +444,52 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 }
 
 async function onText(sub: string, replyToken: string, text: string) {
+  const t = text.trim();
+  if(["繼續","繼續放鬆測試"].includes(t) && relaxMenuTestScope() && relaxAllowed(sub))return relaxGuard(sub,replyToken,async()=>{
+    const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
+    if(!s)return relaxStart(sub,replyToken);
+    return relaxAsk(sub,replyToken,s.paused?await relaxUpdate(s,{paused:false}):s);
+  });
+  if(t === "選單診斷")return relaxGuard(sub,replyToken,()=>relaxMenuDiagnose(sub,replyToken));
+  if(t === "設定主選單" && relaxAllowed(sub))return relaxGuard(sub,replyToken,async()=>{
+    const status=await relaxEnsureHome();
+    return reply(replyToken,[{type:"text",text:status==="OK"?"主選單已設定好。關掉聊天室再打開，底部就會看到。":"主選單沒有設定成功："+status}]);
+  });
+  if(t === "收起放鬆選單")return relaxGuard(sub,replyToken,async()=>{
+    if(!relaxMenuTestScope())return reply(replyToken,[{type:"text",text:"這個操作只適用測試帳號。"}]);
+    const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
+    if(s){await relaxMenusRestore(sub,s);if(!s.paused)await relaxUpdate(s,{paused:true});}
+    return reply(replyToken,[{type:"text",text:"已收起選單，進度幫你留著。想繼續時傳任何訊息就可以。"}]);
+  });
+  // Home menu tiles on the test bot.
+  if (["心跳前後對比","我的計畫"].includes(t) && relaxAllowed(sub)) return relaxGuard(sub,replyToken,async()=>{
+    const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
+    if(!s)return relaxStart(sub,replyToken);
+    if(s.status==="quiz"||s.paused)return relaxAsk(sub,replyToken,s.paused?await relaxUpdate(s,{paused:false}):s);
+    if(t==="我的計畫")return s.status==="preview"?relaxToday(sub,replyToken,s):relaxAsk(sub,replyToken,s);
+    return relaxOfferScan(sub,replyToken,await relaxUpdate(s,{status:"scan",scan_opt_in:true,scan_started_at:new Date().toISOString()}));
+  });
+  if (["放鬆測試","放鬆練習","14天放鬆","14 天放鬆","重新開始放鬆測試"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxStart(sub,replyToken));
+  if (["刪除我的資料","刪除放鬆測試資料"].includes(t)) return relaxGuard(sub,replyToken,()=>relaxDelete(sub,replyToken));
+  if (/^放鬆量測完成 /.test(t)) return relaxGuard(sub,replyToken,async()=>{
+    if (!relaxAllowed(sub)) return reply(replyToken,[{type:"text",text:"放鬆測試目前未開放。"}]);
+    const uid=await findUser(sub,false), s=uid?await relaxSession(uid):null;
+    if (s && t === `放鬆量測完成 ${s.flow_id}`) return relaxScanDone(sub,replyToken,s);
+    return reply(replyToken,[{type:"text",text:"這個量測連結已經過期了，傳任何訊息就能接著做。"}]);
+  });
+  if (t === "我量好了" && relaxAllowed(sub)) {
+    const handled=await relaxGuard(sub,replyToken,async()=>{
+      const uid=await findUser(sub,false), s=uid?await relaxSession(uid):null;
+      if (s?.status === "scan" && !s.paused) { await relaxScanDone(sub,replyToken,s); return true; }
+      return false;
+    });
+    if (handled !== false) return;
+  }
+  // The isolated test bot only runs the relaxation quiz: any other text re-shows where the tester is.
+  if (relaxMenuTestScope() && relaxAllowed(sub)) return relaxGuard(sub,replyToken,async()=>{
+    const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
+    return s?relaxAsk(sub,replyToken,s):relaxStart(sub,replyToken);
+  });
   if (/^(開始問卷|開始|問卷)$/.test(text.trim())) return startFlow(sub, replyToken);
   if (/^我量好了/.test(text.trim())) return onScanDone(sub, replyToken);
   if (/^(我的報告|報告|看報告)$/.test(text.trim())) return showReport(sub, replyToken);
@@ -454,9 +505,227 @@ async function onText(sub: string, replyToken: string, text: string) {
 async function onEvent(ev: { type: string; replyToken?: string; source?: { userId?: string }; message?: { type: string; text?: string }; postback?: { data: string } }) {
   const sub = ev.source?.userId;
   if (!sub || !ev.replyToken) return;
+  if (ev.type === "follow" && relaxMenuTestScope() && relaxAllowed(sub)) return relaxGuard(sub, ev.replyToken, () => relaxGreet(sub, ev.replyToken!));
   if (ev.type === "follow") return onText(sub, ev.replyToken, "");
   if (ev.type === "message" && ev.message?.type === "text") return onText(sub, ev.replyToken, ev.message.text ?? "");
   if (ev.type === "postback" && ev.postback) return onPostback(sub, ev.replyToken, ev.postback.data);
+}
+
+
+// ---------- 自願參加的數位放鬆方案測試（與既有保健品流程隔離）----------
+// @@PILOT@@
+// @@RELAX_FLEX@@
+// @@RELAX_MENU@@
+const RELAX_PILOT_ENABLED = Deno.env.get("RELAX_PILOT_ENABLED") === "1";
+const RELAX_PILOT_LINE_SUBS = (Deno.env.get("RELAX_PILOT_LINE_SUBS") ?? "").split(",").map(s => s.trim()).filter(Boolean);
+const relaxAllowed = (sub: string) => RELAX_PILOT_ENABLED && (ADMINS.includes(sub) || RELAX_PILOT_LINE_SUBS.includes(sub));
+const RELAX_CONSENT_VERSION = "relax-pilot-2026-10";
+type RelaxSession = {
+  user_id: string; answers: Record<string, string>; step: number;
+  status: "quiz" | "scan" | "preview"; scan_opt_in: boolean;
+  scan_started_at?: string | null; flow_id: string; revision: number;
+  current_rich_menu_id?: string | null; previous_rich_menu_id?: string | null; rich_menu_captured?: boolean;
+  paused: boolean; interest_clicked_at?: string | null; created_at: string;
+};
+const relaxData = (s: RelaxSession) => (data: string) => `${data}~${s.flow_id}~${s.revision}`;
+const relaxScanUrl = (s: RelaxSession) => `${LIFF_URL}/?relaxPilot=${encodeURIComponent(s.flow_id)}`;
+async function relaxSession(uid: string): Promise<RelaxSession | null> {
+  const q = await db.from("digital_relax_pilot_sessions").select("*").eq("user_id", uid).maybeSingle();
+  if (q.error) throw q.error;
+  if (q.data && Date.now() - Date.parse(q.data.created_at) >= 30 * 864e5) {
+    const u=await db.from("users").select("line_sub").eq("id",uid).maybeSingle();
+    if(u.error)throw u.error;
+    if(u.data?.line_sub)await relaxMenusRestore(u.data.line_sub,q.data);
+    const expired = await db.from("digital_relax_pilot_sessions").delete().eq("user_id", uid).eq("flow_id", q.data.flow_id);
+    if (expired.error) throw expired.error;
+    return null;
+  }
+  return q.data as RelaxSession | null;
+}
+// Optimistic concurrency: stale/replayed buttons cannot advance a new step or reset a new run.
+async function relaxUpdate(s: RelaxSession, changes: Record<string, unknown>): Promise<RelaxSession> {
+  const q = await db.from("digital_relax_pilot_sessions")
+    .update({ ...changes, revision: s.revision + 1, updated_at: new Date().toISOString() })
+    .eq("user_id", s.user_id).eq("flow_id", s.flow_id).eq("revision", s.revision).select("*").maybeSingle();
+  if (q.error) throw q.error;
+  if (!q.data) throw new Error("RELAX_STALE_ACTION");
+  return q.data as RelaxSession;
+}
+async function relaxStart(sub: string, token: string) {
+  if (!relaxAllowed(sub)) return reply(token, [{ type: "text", text: "這個放鬆服務目前只開放受邀測試；原本的 Deerly 服務不受影響。" }]);
+  const uid = await findUser(sub, false);
+  const existing = uid ? await relaxSession(uid) : null;
+  await relaxEnsureHome();
+  if (existing?.status === "preview" && !existing.paused) return relaxToday(sub,token,existing);
+  if (existing) {
+    const data = relaxData(existing);
+    return reply(token, [{ type:"text", text:"你上次的放鬆練習還沒做完。要接著做，還是重新開始？",
+      quickReply:quick([{label:"接著做",data:data("rlx|resume")},{label:"重新開始",data:data("rlx|restart")},{label:"刪除我的資料",data:data("rlx|delete")}]) }]);
+  }
+  return reply(token, [relaxWelcome()]);
+}
+async function relaxAsk(sub: string, token: string, s: RelaxSession) {
+  const data = relaxData(s);
+  await relaxEnsureHome();
+  if (s.paused) { await relaxMenusTryRestore(sub,s); return reply(token,[{type:"text",text:"先暫停囉，進度幫你留著。想繼續時傳任何訊息就可以。",quickReply:quick([{label:"繼續",data:data("rlx|resume")},{label:"刪除我的資料",data:data("rlx|delete")}])}]); }
+  if (s.status === "preview") return relaxPreview(sub,token, s);
+  if (s.status === "scan") return relaxOfferScan(sub,token, s);
+  const q = catalog.relax.questions[s.step];
+  if (!q) throw new Error("RELAX_INVALID_STEP");
+  const items = q.options.map((o: {value:string;label:string})=>({label:o.label,data:data("rlx|answer|"+s.step+"|"+o.value)}));
+  if (s.step > 0) items.push({label:"上一題",data:data("rlx|back")});
+  items.push({label:"先暫停",data:data("rlx|pause")});
+  let rich=false;
+  let menuStatus=relaxMenuTestScope()?(Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED")==="1"?"MENU_STATE_CHANGED":"MENU_SWITCH_OFF"):"MENU_TEST_SCOPE_MISMATCH";
+  try{rich=await relaxMenusShow(sub,s);}catch(e){menuStatus=relaxMenuFailure(e);console.error("Test menu fallback",menuStatus);}
+  const prompt=`放鬆練習 ${s.step+1}/5\n${q.text}`;
+  if(rich)return reply(token,[{type:"text",text:prompt+(s.step===0?"\n請點下方選單作答。":"")}]);
+  return reply(token,[{type:"text",text:prompt+`\n請用訊息下方按鈕作答。大字選單狀態：${menuStatus}；可輸入「選單診斷」查詢。`,quickReply:quick(items)}]);
+}
+async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
+  await relaxMenusTryRestore(sub,s);
+  const message: Record<string, unknown> = relaxScanCard(relaxData(s), relaxScanUrl(s));
+  message.quickReply = quick([{label:"我量好了",data:relaxData(s)("rlx|done")},{label:"先暫停",data:relaxData(s)("rlx|pause")}]);
+  return reply(token,[message]);
+}
+type RelaxHeart = {before:number;after?:number;first?:{before:number;after:number}};
+async function relaxPreview(sub: string, token: string, s: RelaxSession, heart?: RelaxHeart) {
+  await relaxMenusTryRestore(sub,s);
+  return reply(token,relaxReport(createPreview(catalog.relax,s.answers),relaxData(s),heart));
+}
+// Day 1 is the day the tester agreed; the plan stops advancing after day 14.
+const relaxDay = (s: RelaxSession) => Math.min(14, Math.max(1, Math.floor((Date.now()-Date.parse(s.created_at))/86400e3)+1));
+async function relaxToday(sub: string, token: string, s: RelaxSession) {
+  await relaxMenusTryRestore(sub,s);
+  const message: Record<string, unknown> = relaxTodayCard(createPreview(catalog.relax,s.answers),relaxDay(s),relaxData(s));
+  message.quickReply = quick([{label:"重新做 5 題",data:relaxData(s)("rlx|restart")}]);
+  return reply(token,[message]);
+}
+async function relaxGreet(sub: string, token: string) {
+  await relaxEnsureHome();
+  const uid = await findUser(sub,false), s = uid ? await relaxSession(uid) : null;
+  if (s) return relaxAsk(sub,token,s);
+  return reply(token,[{type:"text",text:"嗨，歡迎來到 Deerly。\n每天留幾分鐘給自己，我們幫你排好放鬆練習。\n\n點下方的「放鬆練習」，回答 5 題就能拿到你的 14 天計畫。"}]);
+}
+async function relaxScanDone(sub: string, token: string, s: RelaxSession) {
+  if (s.status !== "scan" || s.paused || !s.scan_opt_in || !s.scan_started_at) return relaxAsk(sub,token,s);
+  // The scan page saves one reading before and one after a minute of slow breathing.
+  const scans = await db.from("scans").select("bpm,quality,scanned_at").eq("user_id",s.user_id)
+    .gte("scanned_at",s.scan_started_at).order("scanned_at",{ascending:true}).limit(10);
+  if (scans.error) throw scans.error;
+  const now = Date.now(), started = Date.parse(s.scan_started_at);
+  const valid = (scans.data ?? []).filter((x: {bpm:number;quality:number;scanned_at:string}) => {
+    const time = Date.parse(x.scanned_at ?? "");
+    return Number.isFinite(time) && Number.isFinite(started) && time >= started && time <= now && now-time <= 15*60e3 &&
+      Number.isFinite(x.quality) && x.quality >= 0.35 && Number.isFinite(x.bpm) && x.bpm >= 30 && x.bpm <= 220;
+  });
+  if (!valid.length) {
+    return reply(token,[{type:"text",text:"這次沒有量到清楚的心跳。沒關係，可以再量一次，或直接看計畫。",
+      quickReply:quick([{label:"再量一次",uri:relaxScanUrl(s)},{label:"直接看計畫",data:relaxData(s)("rlx|scan|skip")}])}]);
+  }
+  const heart: RelaxHeart = {before:valid[0].bpm,after:valid.length>1?valid[valid.length-1].bpm:undefined};
+  if (heart.after !== undefined && relaxDay(s) >= 7) {
+    // Day 7/14 check-ins compare with the first day's before/after pair.
+    const day1 = new Date(Date.parse(s.created_at)+86400e3).toISOString();
+    const first = await db.from("scans").select("bpm,quality,scanned_at").eq("user_id",s.user_id)
+      .gte("scanned_at",s.created_at).lt("scanned_at",day1).order("scanned_at",{ascending:true}).limit(10);
+    if (first.error) throw first.error;
+    const ok = (first.data ?? []).filter((x: {bpm:number;quality:number}) => Number.isFinite(x.quality) && x.quality >= 0.35 && x.bpm >= 30 && x.bpm <= 220);
+    if (ok.length > 1) heart.first = {before:ok[0].bpm,after:ok[ok.length-1].bpm};
+  }
+  const next = await relaxUpdate(s,{status:"preview"});
+  return relaxPreview(sub,token,next,heart);
+}
+async function relaxPostback(sub: string, token: string, raw: string) {
+  if (!relaxAllowed(sub)) return reply(token,[{type:"text",text:"放鬆測試目前未開放。"}]);
+  const [data,flow,revision] = raw.split("~");
+  const [prefix,kind,detail,value] = data.split("|");
+  if (prefix !== "rlx") return;
+  if (kind === "privacy") return reply(token,relaxPrivacy.map(text=>({type:"text",text})));
+  if (kind === "start" && detail === "no") return reply(token,[{type:"text",text:"好的，沒有保存任何資料。想試的時候，傳任何訊息給我就可以。"}]);
+  if (kind === "start" && detail === "yes") {
+    const uid = await findUser(sub,true);
+    if (!uid) throw new Error("RELAX_USER_MISSING");
+    const existing = await relaxSession(uid);
+    if (existing) return relaxAsk(sub,token,existing); // repeated consent never resets progress
+    const up = await db.from("digital_relax_pilot_sessions").upsert({
+      user_id:uid,consent_version:RELAX_CONSENT_VERSION,created_at:new Date().toISOString(),
+      flow_id:crypto.randomUUID(),revision:0,paused:false,answers:{},step:0,status:"quiz",scan_opt_in:false,
+      scan_started_at:null,interest_clicked_at:null,updated_at:new Date().toISOString()
+    },{onConflict:"user_id",ignoreDuplicates:true});
+    if (up.error) throw up.error;
+    const s = await relaxSession(uid);
+    if (!s) throw new Error("RELAX_SESSION_MISSING");
+    return relaxAsk(sub,token,s);
+  }
+  const uid = await findUser(sub,false), s = uid ? await relaxSession(uid) : null;
+  if (!s) return relaxStart(sub,token);
+  // Shared menu taps carry the question number instead of flow/revision; only the current question counts.
+  const current = flow === "menu"
+    ? s.status === "quiz" && ["answer","back","pause"].includes(kind) && detail === String(s.step)
+    : flow === s.flow_id && revision === String(s.revision);
+  if (!current) return relaxAsk(sub,token,s);
+  if (kind === "delete") return relaxDelete(sub,token,s);
+  if (kind === "restart") {
+    // Explicit, scoped reset, followed by a fresh consent screen; duplicate old buttons cannot reset again.
+    await relaxDelete(sub,token,s,false);
+    return reply(token,[relaxWelcome()]);
+  }
+  if (kind === "resume") return relaxAsk(sub,token,s.paused?await relaxUpdate(s,{paused:false}):s);
+  if (kind === "pause") return relaxAsk(sub,token,await relaxUpdate(s,{paused:true}));
+  if (s.paused) return relaxAsk(sub,token,s);
+  if (kind === "back" && s.status === "quiz" && s.step>0) {
+    const step=s.step-1;
+    const answers=Object.fromEntries(catalog.relax.questions.slice(0,step).map(q=>[q.id,s.answers[q.id]]));
+    return relaxAsk(sub,token,await relaxUpdate(s,{step,answers}));
+  }
+  if (kind === "answer" && s.status === "quiz") {
+    const q=catalog.relax.questions[s.step];
+    if (detail !== String(s.step) || !q || !q.options.some(o=>o.value===value)) return relaxAsk(sub,token,s);
+    const step=s.step+1;
+    return relaxAsk(sub,token,await relaxUpdate(s,{answers:{...s.answers,[q.id]:value},step,status:step===5?"scan":"quiz",
+      ...(step===5?{scan_opt_in:true,scan_started_at:new Date().toISOString()}:{})}));
+  }
+  if (kind === "scan" && s.status === "scan") {
+    if (detail === "skip") return relaxPreview(sub,token,await relaxUpdate(s,{status:"preview",scan_opt_in:false,scan_started_at:null}));
+    if (detail === "yes") return relaxOfferScan(sub,token,s.scan_opt_in?s:await relaxUpdate(s,{scan_opt_in:true,scan_started_at:new Date().toISOString()}));
+  }
+  if (kind === "done") return relaxScanDone(sub,token,s);
+  if (kind === "report" && s.status === "preview") return relaxPreview(sub,token,s);
+  if (kind === "interest" && s.status === "preview") {
+    if (!s.interest_clicked_at) await relaxUpdate(s,{interest_clicked_at:new Date().toISOString()});
+    return reply(token,[{type:"text",text:"謝謝，已幫你登記！目前不會收費，也沒有成立訂單。"}]);
+  }
+  return relaxAsk(sub,token,s);
+}
+async function relaxDelete(sub: string, token: string, session?: RelaxSession, respond = true) {
+  if (!relaxAllowed(sub)) return reply(token,[{type:"text",text:"放鬆測試目前未開放。"}]);
+  const uid = session?.user_id ?? await findUser(sub,false);
+  if (uid) {
+    const existing=session??await relaxSession(uid);
+    if(existing)await relaxMenusRestore(sub,existing);
+    let query = db.from("digital_relax_pilot_sessions").delete().eq("user_id",uid);
+    if (session) query=query.eq("flow_id",session.flow_id).eq("revision",session.revision);
+    const r=await query.select("user_id");
+    if (r.error) throw r.error;
+    if (session && !r.data?.length) throw new Error("RELAX_STALE_ACTION");
+  }
+  if (respond) return reply(token,[{type:"text",text:"已刪除你的放鬆練習回答與紀錄。心率紀錄請到量測頁刪除。"}]);
+}
+// In-instance ordering + DB revision comparisons protect rapid clicks across instances.
+const relaxQueues = new Map<string, Promise<unknown>>();
+async function relaxGuard(sub: string, token: string, work: () => Promise<unknown>) {
+  const previous=relaxQueues.get(sub) ?? Promise.resolve();
+  const current=previous.catch(()=>{}).then(work).catch(async e=>{
+    // Do not log answer values, LINE IDs or raw DB errors.
+    console.error("Relax pilot operation failed");
+    const text=e instanceof Error && e.message==="RELAX_STALE_ACTION"
+      ?"進度剛剛更新過，傳任何訊息就能接著做。"
+      :"剛才沒有完成，傳任何訊息就能接著做；也可以輸入「刪除我的資料」。";
+    return reply(token,[{type:"text",text}]);
+  });
+  relaxQueues.set(sub,current);
+  try { return await current; } finally { if (relaxQueues.get(sub)===current) relaxQueues.delete(sub); }
 }
 
 // ---------- 管理：建立選單 ----------
@@ -524,7 +793,7 @@ async function setupHome(a: { key: string; x: number; y: number; w: number; h: n
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  if (req.method === "GET") return json({ ok: true });
+  if (req.method === "GET") return json({ ok: true, build: RELAX_MENU_BUILD, richMenuTestScope: relaxMenuTestScope(), richMenuSwitchOn: Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED") === "1" });
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const raw = await req.text();
 

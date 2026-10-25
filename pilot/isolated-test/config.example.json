@@ -1,0 +1,7 @@
+{
+  "isolatedTest": true,
+  "supabaseUrl": "https://deerly-test.supabase.invalid",
+  "siteUrl": "https://deerly-test.invalid",
+  "liffId": "0000000000-testonly",
+  "lineChannelId": "0000000000"
+}

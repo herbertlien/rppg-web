@@ -1,0 +1,164 @@
+{
+  "type": "flex",
+  "altText": "看看你放鬆前後的心跳｜約 2 分鐘，也可以略過。",
+  "contents": {
+    "type": "bubble",
+    "size": "mega",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "20px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "text",
+          "text": "5 題完成・最後一步",
+          "wrap": true,
+          "size": "xs",
+          "color": "#1F5C42",
+          "weight": "bold"
+        },
+        {
+          "type": "text",
+          "text": "看看你放鬆前後的心跳",
+          "wrap": true,
+          "size": "xl",
+          "color": "#1E2A24",
+          "weight": "bold"
+        }
+      ]
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#FFFFFF",
+      "paddingAll": "20px",
+      "spacing": "md",
+      "contents": [
+        {
+          "type": "text",
+          "text": "約 2 分鐘，手機會一步一步帶你做：",
+          "wrap": true,
+          "size": "sm",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "spacing": "md",
+          "contents": [
+            {
+              "type": "text",
+              "text": "1",
+              "size": "md",
+              "weight": "bold",
+              "color": "#1F5C42",
+              "flex": 0,
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "先量一次心跳（30 秒）",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "spacing": "md",
+          "contents": [
+            {
+              "type": "text",
+              "text": "2",
+              "size": "md",
+              "weight": "bold",
+              "color": "#1F5C42",
+              "flex": 0,
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "跟著圓圈慢慢呼吸（1 分鐘）",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "spacing": "md",
+          "contents": [
+            {
+              "type": "text",
+              "text": "3",
+              "size": "md",
+              "weight": "bold",
+              "color": "#1F5C42",
+              "flex": 0,
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "再量一次（30 秒）",
+              "wrap": true,
+              "size": "sm",
+              "color": "#1E2A24"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "text": "做完回到這裡，會收到你的放鬆報告。",
+          "wrap": true,
+          "size": "sm",
+          "color": "#1E2A24"
+        },
+        {
+          "type": "text",
+          "text": "影像只在手機上處理、不上傳。不量也會拿到一樣的計畫。",
+          "wrap": true,
+          "size": "xs",
+          "color": "#52655B"
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "backgroundColor": "#F6F1EA",
+      "paddingAll": "16px",
+      "spacing": "sm",
+      "contents": [
+        {
+          "type": "button",
+          "style": "primary",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "uri",
+            "label": "開始（約 2 分鐘）",
+            "uri": "https://liff.line.me/example"
+          }
+        },
+        {
+          "type": "button",
+          "style": "link",
+          "height": "md",
+          "color": "#1F5C42",
+          "action": {
+            "type": "postback",
+            "label": "略過，直接看計畫",
+            "data": "rlx|scan|skip~00000000-0000-4000-8000-000000000000~0",
+            "displayText": "略過，直接看計畫"
+          }
+        }
+      ]
+    }
+  }
+}
