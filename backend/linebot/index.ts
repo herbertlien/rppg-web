@@ -717,6 +717,7 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 
 async function onText(sub: string, replyToken: string, text: string) {
   const t = text.trim();
+  if(t === "選單診斷")return relaxGuard(sub,replyToken,()=>relaxMenuDiagnose(sub,replyToken));
   if(t === "收起放鬆選單")return relaxGuard(sub,replyToken,async()=>{
     if(!relaxMenuTestScope())return reply(replyToken,[{type:"text",text:"這個操作只適用測試帳號。"}]);
     const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
@@ -943,6 +944,36 @@ const relaxMenuTestScope = () => Deno.env.get("RELAX_ISOLATED_TEST") === "1"
   && (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "") === RELAX_MENU_TEST_PROJECT
   && LIFF_URL === "https://liff.line.me/2012194363-LYirSkEL";
 const relaxMenusEnabled = () => relaxMenuTestScope() && Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED") === "1";
+const RELAX_MENU_BUILD = "relax-menu-diagnostics-v2";
+function relaxMenuFailure(e: unknown): string {
+  const message=e instanceof Error?e.message:"";
+  if(/^MENU_[A-Z_0-9]+$/.test(message))return message;
+  if(message.includes("identity mismatch"))return "MENU_WRONG_BOT";
+  if(message.includes("verify test bot"))return "MENU_BOT_AUTH_FAILED";
+  if(message.includes("image unavailable"))return "MENU_IMAGE_UNAVAILABLE";
+  if(message.includes("Invalid menu PNG")||message.includes("dimensions"))return "MENU_IMAGE_INVALID";
+  if(e && typeof e==="object" && "code" in e && typeof e.code==="string" && /^[A-Z0-9]+$/.test(e.code))return "MENU_DATABASE_"+e.code;
+  return "MENU_OPERATION_FAILED";
+}
+async function relaxMenuDiagnose(sub: string, token: string) {
+  if(!relaxAllowed(sub))return reply(token,[{type:"text",text:"選單診斷只開放受邀測試者。"}]);
+  const lines=["選單診斷｜"+RELAX_MENU_BUILD,
+    "測試環境核對："+(relaxMenuTestScope()?"通過":"未通過"),
+    "Rich Menu 開關："+(Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED")==="1"?"已開啟":"未開啟，請設 RELAX_PILOT_RICH_MENU_ENABLED=1")];
+  if(!relaxMenuTestScope())return reply(token,[{type:"text",text:lines.join("\n")}]);
+  try{await relaxMenuIdentity();lines.push("測試官方帳號：通過");}catch(e){lines.push("測試官方帳號："+relaxMenuFailure(e));return reply(token,[{type:"text",text:lines.join("\n")}]);}
+  const uid=await findUser(sub,false);
+  if(uid){
+    const row=await db.from("digital_relax_pilot_sessions").select("current_rich_menu_id,previous_rich_menu_id,rich_menu_captured").eq("user_id",uid).maybeSingle();
+    lines.push("選單資料欄位："+(row.error?relaxMenuFailure(row.error):"通過"));
+  }else lines.push("問卷紀錄：尚未同意開始");
+  try{
+    const res=await fetch(`${RELAX_MENU_TEST_SITE}/pilot/relax-menus/goal.png?v=${relaxMenuVersion}`,{redirect:"error"});
+    const bytes=new Uint8Array(await res.arrayBuffer());
+    lines.push("第一題圖片：HTTP "+res.status+(bytes.length>=24&&bytes.slice(0,8).join(",")==="137,80,78,71,13,10,26,10"?"，PNG 正確":"，不是有效 PNG"));
+  }catch{lines.push("第一題圖片：連線或重新導向失敗");}
+  return reply(token,[{type:"text",text:lines.join("\n")}]);
+}
 let relaxMenuBotCheck: Promise<void> | null = null;
 async function relaxMenuIdentity() {
   if (!relaxMenuTestScope()) throw new Error("Rich Menu is restricted to the isolated test project");
@@ -950,7 +981,7 @@ async function relaxMenuIdentity() {
   if (!/^@[A-Za-z0-9._-]+$/.test(expected)) throw new Error("Missing test bot basic ID");
   if (!relaxMenuBotCheck) relaxMenuBotCheck = (async () => {
     const res = await fetch("https://api.line.me/v2/bot/info", {headers:{authorization:`Bearer ${TOKEN}`}});
-    if (!res.ok) throw new Error("Cannot verify test bot identity");
+    if (!res.ok) throw new Error("MENU_BOT_HTTP_"+res.status);
     const bot = await res.json();
     if (bot.basicId !== expected) throw new Error("Test bot identity mismatch; menu changes refused");
   })().catch(e => { relaxMenuBotCheck = null; throw e; });
@@ -963,7 +994,10 @@ async function relaxMenuApi(path: string, method="GET", body?: unknown, image=fa
     headers:{authorization:`Bearer ${TOKEN}`,...(body!==undefined?{"content-type":image?"image/png":"application/json"}:{})},
     body: body===undefined?undefined:image?body as Uint8Array:JSON.stringify(body)});
   if (res.status===404 && method==="GET") return null;
-  if (!res.ok) throw new Error(`Test Rich Menu operation failed (${res.status})`);
+  if (!res.ok) {
+    const stage=image?"UPLOAD":path==="/v2/bot/richmenu"?"CREATE":path.includes("/user/")?(method==="GET"?"LOOKUP":"LINK"):"CLEANUP";
+    throw new Error(`MENU_${stage}_HTTP_${res.status}`);
+  }
   const text=await res.text();return text?JSON.parse(text):{};
 }
 async function relaxMenuState(s: RelaxSession): Promise<RelaxSession | null> {
@@ -1004,7 +1038,7 @@ async function relaxMenusShow(sub: string, snapshot: RelaxSession): Promise<bool
     if(existing?.name===definition.name)return true;
   }
   const asset=await fetch(`${RELAX_MENU_TEST_SITE}/pilot/relax-menus/${question.id}.png?v=${relaxMenuVersion}`,{redirect:"error"});
-  if(!asset.ok)throw new Error("Test menu image unavailable");
+  if(!asset.ok)throw new Error("MENU_IMAGE_HTTP_"+asset.status);
   const bytes=new Uint8Array(await asset.arrayBuffer());
   if(bytes.length>1_000_000||bytes.length<24||bytes.slice(0,8).join(",")!=="137,80,78,71,13,10,26,10")throw new Error("Invalid menu PNG");
   const view=new DataView(bytes.buffer);if(view.getUint32(16)!==2500||view.getUint32(20)!==1686)throw new Error("Wrong menu image dimensions");
@@ -1096,8 +1130,9 @@ async function relaxAsk(sub: string, token: string, s: RelaxSession) {
   if (s.step > 0) items.push({label:"上一題",data:data("rlx|back")});
   items.push({label:"先暫停",data:data("rlx|pause")});
   let rich=false;
-  try{rich=await relaxMenusShow(sub,s);}catch{console.error("Test menu unavailable; Quick Reply fallback");}
-  return reply(token,[{type:"text",text:`放鬆練習 ${s.step+1}/5\n${q.text}\n${rich?"請點聊天室下方的大字選單作答；若收起來，點選單列展開。":"請用訊息下方按鈕作答（大字選單未啟用或暫時無法顯示）。"}`,quickReply:quick(items)}]);
+  let menuStatus=relaxMenuTestScope()?(Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED")==="1"?"MENU_STATE_CHANGED":"MENU_SWITCH_OFF"):"MENU_TEST_SCOPE_MISMATCH";
+  try{rich=await relaxMenusShow(sub,s);}catch(e){menuStatus=relaxMenuFailure(e);console.error("Test menu fallback",menuStatus);}
+  return reply(token,[{type:"text",text:`放鬆練習 ${s.step+1}/5\n${q.text}\n${rich?"請點聊天室下方的大字選單作答；若收起來，點選單列展開。":`請用訊息下方按鈕作答。大字選單狀態：${menuStatus}；可輸入「選單診斷」查詢。`}`,quickReply:quick(items)}]);
 }
 async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
   await relaxMenusTryRestore(sub,s);
@@ -1276,7 +1311,7 @@ async function setupHome(a: { key: string; x: number; y: number; w: number; h: n
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  if (req.method === "GET") return json({ ok: true });
+  if (req.method === "GET") return json({ ok: true, build: RELAX_MENU_BUILD, richMenuTestScope: relaxMenuTestScope(), richMenuSwitchOn: Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED") === "1" });
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const raw = await req.text();
 

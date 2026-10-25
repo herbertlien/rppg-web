@@ -81,3 +81,22 @@ test('configured isolated artifact executes the same guarded Rich Menu flow as s
   const wrong=fixture({menu:true,wrongBot:true,script});await wrong.begin();assert.equal(wrong.menuRequests.length,0);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+
+test('read-only diagnostics distinguish disabled switch, wrong bot and image HTTP failure without creating menus',async()=>{
+ const off=fixture({menu:true});off.variables.RELAX_PILOT_RICH_MENU_ENABLED='0';await off.begin();
+ assert.match(JSON.stringify(off.replies.at(-1)),/MENU_SWITCH_OFF/);
+ const writes=off.writes.length;await off.text('選單診斷');
+ assert.match(JSON.stringify(off.replies.at(-1)),/未開啟/);assert.equal(off.writes.length,writes);
+ assert.equal(off.menuRequests.filter(r=>r.method!=='GET').length,0);
+ const wrong=fixture({menu:true,wrongBot:true});await wrong.text('選單診斷');assert.match(JSON.stringify(wrong.replies.at(-1)),/MENU_WRONG_BOT/);
+ assert.equal(wrong.menuRequests.length,0);
+ const image=fixture({menu:true});image.menuState.failure='asset';await image.begin();
+ assert.match(JSON.stringify(image.replies.at(-1)),/MENU_IMAGE_HTTP_503/);
+ await image.text('選單診斷');assert.match(JSON.stringify(image.replies.at(-1)),/HTTP 503/);
+});
+test('fallback reports upload and link stages and HTTP status without disclosing credentials or LINE user IDs',async()=>{
+ for(const [failure,code] of [['upload','MENU_UPLOAD_HTTP_500'],['link','MENU_LINK_HTTP_500']]){
+  const f=fixture({menu:true});f.menuState.failure=failure;await f.begin();
+  const text=JSON.stringify(f.replies.at(-1));assert.ok(text.includes(code));assert.ok(!text.includes('synthetic-test-secret'));assert.ok(!text.includes('fake-user'));
+ }
+});

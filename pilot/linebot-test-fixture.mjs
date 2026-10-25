@@ -104,7 +104,7 @@ export function fixture({enabled=true,allow='invited',admin='',failTable=null,sh
   const click=data=>post(scoped(data));
   const begin=()=>post('rlx|start|yes');
   const complete=async()=>{await begin();for(let i=0;i<5;i++)await click(`rlx|answer|${i}|${catalog.relax.questions[i].options[0].value}`);};
-  return {tables,calls,writes,replies,event,text,post,begin,session,scoped,click,complete,menuState,menuRequests};
+  return {tables,calls,writes,replies,event,text,post,begin,session,scoped,click,complete,menuState,menuRequests,variables};
 }
 
 export {source};

@@ -445,6 +445,7 @@ async function onPostback(sub: string, replyToken: string, data: string) {
 
 async function onText(sub: string, replyToken: string, text: string) {
   const t = text.trim();
+  if(t === "選單診斷")return relaxGuard(sub,replyToken,()=>relaxMenuDiagnose(sub,replyToken));
   if(t === "收起放鬆選單")return relaxGuard(sub,replyToken,async()=>{
     if(!relaxMenuTestScope())return reply(replyToken,[{type:"text",text:"這個操作只適用測試帳號。"}]);
     const uid=await findUser(sub,false),s=uid?await relaxSession(uid):null;
@@ -549,8 +550,9 @@ async function relaxAsk(sub: string, token: string, s: RelaxSession) {
   if (s.step > 0) items.push({label:"上一題",data:data("rlx|back")});
   items.push({label:"先暫停",data:data("rlx|pause")});
   let rich=false;
-  try{rich=await relaxMenusShow(sub,s);}catch{console.error("Test menu unavailable; Quick Reply fallback");}
-  return reply(token,[{type:"text",text:`放鬆練習 ${s.step+1}/5\n${q.text}\n${rich?"請點聊天室下方的大字選單作答；若收起來，點選單列展開。":"請用訊息下方按鈕作答（大字選單未啟用或暫時無法顯示）。"}`,quickReply:quick(items)}]);
+  let menuStatus=relaxMenuTestScope()?(Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED")==="1"?"MENU_STATE_CHANGED":"MENU_SWITCH_OFF"):"MENU_TEST_SCOPE_MISMATCH";
+  try{rich=await relaxMenusShow(sub,s);}catch(e){menuStatus=relaxMenuFailure(e);console.error("Test menu fallback",menuStatus);}
+  return reply(token,[{type:"text",text:`放鬆練習 ${s.step+1}/5\n${q.text}\n${rich?"請點聊天室下方的大字選單作答；若收起來，點選單列展開。":`請用訊息下方按鈕作答。大字選單狀態：${menuStatus}；可輸入「選單診斷」查詢。`}`,quickReply:quick(items)}]);
 }
 async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
   await relaxMenusTryRestore(sub,s);
@@ -729,7 +731,7 @@ async function setupHome(a: { key: string; x: number; y: number; w: number; h: n
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-  if (req.method === "GET") return json({ ok: true });
+  if (req.method === "GET") return json({ ok: true, build: RELAX_MENU_BUILD, richMenuTestScope: relaxMenuTestScope(), richMenuSwitchOn: Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED") === "1" });
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const raw = await req.text();
 
