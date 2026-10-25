@@ -6,7 +6,7 @@ const relaxMenuTestScope = () => Deno.env.get("RELAX_ISOLATED_TEST") === "1"
   && (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "") === RELAX_MENU_TEST_PROJECT
   && LIFF_URL === "https://liff.line.me/2012194363-LYirSkEL";
 const relaxMenusEnabled = () => relaxMenuTestScope() && Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED") === "1";
-const RELAX_MENU_BUILD = "relax-menu-diagnostics-v2";
+const RELAX_MENU_BUILD = "relax-menu-focused-v3";
 function relaxMenuFailure(e: unknown): string {
   const message=e instanceof Error?e.message:"";
   if(/^MENU_[A-Z_0-9]+$/.test(message))return message;

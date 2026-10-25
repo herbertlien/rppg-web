@@ -557,7 +557,9 @@ async function relaxAsk(sub: string, token: string, s: RelaxSession) {
   let rich=false;
   let menuStatus=relaxMenuTestScope()?(Deno.env.get("RELAX_PILOT_RICH_MENU_ENABLED")==="1"?"MENU_STATE_CHANGED":"MENU_SWITCH_OFF"):"MENU_TEST_SCOPE_MISMATCH";
   try{rich=await relaxMenusShow(sub,s);}catch(e){menuStatus=relaxMenuFailure(e);console.error("Test menu fallback",menuStatus);}
-  return reply(token,[{type:"text",text:`放鬆練習 ${s.step+1}/5\n${q.text}\n${rich?"請點聊天室下方的大字選單作答；若收起來，點選單列展開。":`請用訊息下方按鈕作答。大字選單狀態：${menuStatus}；可輸入「選單診斷」查詢。`}`,quickReply:quick(items)}]);
+  const prompt=`放鬆練習 ${s.step+1}/5\n${q.text}`;
+  if(rich)return reply(token,[{type:"text",text:prompt+(s.step===0?"\n答案在下方大字選單；若鍵盤開著，先收起再展開選單。":"")}]);
+  return reply(token,[{type:"text",text:prompt+`\n請用訊息下方按鈕作答。大字選單狀態：${menuStatus}；可輸入「選單診斷」查詢。`,quickReply:quick(items)}]);
 }
 async function relaxOfferScan(sub: string, token: string, s: RelaxSession) {
   await relaxMenusTryRestore(sub,s);

@@ -109,3 +109,15 @@ test('typed continue resumes pilot instead of legacy supplement quiz on the isol
  const legacy=fixture({menu:true,productionScope:true});legacy.tables.quiz_sessions.push({user_id:'fake-user',cur:'sex',answers:{age:'30_34'},multi:[],history:['age']});
  await legacy.text('繼續');assert.match(JSON.stringify(legacy.replies.at(-1)),/性別/);assert.equal(legacy.menuRequests.filter(r=>r.method!=='GET').length,1); // existing original flow request, no pilot creation
 });
+
+test('Rich Menu is the sole answer surface on success; later questions omit repeated instructions',async()=>{
+ const f=fixture({menu:true});await f.begin();
+ let message=f.replies.at(-1)[0];assert.equal(message.quickReply,undefined);assert.match(message.text,/答案在下方大字選單/);
+ for(let step=0;step<4;step++){
+  const menu=f.menuState.menus.get(f.menuState.assigned);await f.post(menu.areas[0].action.data);
+  message=f.replies.at(-1)[0];assert.equal(message.quickReply,undefined);
+  assert.equal(message.text,`放鬆練習 ${step+2}/5\n${catalog.relax.questions[step+1].text}`);
+ }
+ const fallback=fixture({menu:true});fallback.menuState.failure='asset';await fallback.begin();
+ assert.ok(fallback.replies.at(-1)[0].quickReply.items.length>0);
+});
